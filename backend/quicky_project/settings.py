@@ -154,5 +154,5 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "https://quicky-5e4n.onrender.com",
-    "https://devranbir.github.io/Quicky",
+    "https://devranbir.github.io",
 ]

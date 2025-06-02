@@ -26,7 +26,13 @@ SECRET_KEY = 'django-insecure-your-secret-key'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'quicky-5e4n.onrender.com',
+    'localhost',
+    '127.0.0.1',
+    'Devranbir.github.io/Quicky',
+    # Add any other hostnames or IPs you want to allow
+]
 
 
 # Application definition

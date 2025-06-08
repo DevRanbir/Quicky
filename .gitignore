@@ -51,4 +51,4 @@ Desktop.ini
 # dotenv
 .env
 .env.*
-!.env.example
+!.env.example"myenv/" 

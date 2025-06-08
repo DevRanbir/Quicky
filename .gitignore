@@ -7,6 +7,7 @@ __pycache__/
 venv/
 .venv/
 env/
+myenv/
 
 # Django
 *.log
@@ -38,7 +39,7 @@ frontend/.yarn/build-state.yml
 frontend/.yarn/install-state.gz
 
 # npm
-frontend/package-lock.json # Often committed, but can be ignored if only package.json is source of truth
+frontend/package-lock.json # Optional
 frontend/npm-debug.log*
 frontend/yarn-debug.log*
 frontend/yarn-error.log*
@@ -51,4 +52,4 @@ Desktop.ini
 # dotenv
 .env
 .env.*
-!.env.example"myenv/" 
+!.env.example

@@ -1,0 +1,14 @@
+Django>=4.0,<5.0
+djangorestframework>=3.13,<3.15
+django-cors-headers>=3.10,<4.4
+psycopg2-binary>=2.9,<2.10 # For PostgreSQL
+python-docx>=0.8,<1.2
+python-pptx>=0.6,<0.7
+PyPDF2>=2.0,<3.1 # Or pypdf, if preferred and utils are adjusted
+youtube-transcript-api>=0.4,<0.7
+python-dotenv>=0.19,<1.1
+# Pillow is often a dependency for FileField/ImageField, good to have
+Pillow>=9.0,<10.2
+groq>=0.4.0 # For Groq API integration
+yt-dlp>=2023.7.6
+gunicorn>=20.1,<21.0

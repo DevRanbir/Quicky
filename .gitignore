@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/ # If media files are not meant to be in git
+static_root/
+staticfiles/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node.js / React
+frontend/node_modules/
+frontend/build/
+frontend/.pnp
+frontend/.pnp.js
+frontend/coverage/
+
+# Yarn
+frontend/yarn-error.log
+frontend/.yarn/cache
+frontend/.yarn/unplugged
+frontend/.yarn/build-state.yml
+frontend/.yarn/install-state.gz
+
+# npm
+frontend/package-lock.json # Often committed, but can be ignored if only package.json is source of truth
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# dotenv
+.env
+.env.*
+!.env.example

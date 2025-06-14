@@ -223,7 +223,7 @@ def source_preview(request, source_id):
         source = Source.objects.get(id=source_id)
         
         # Get optional page limit from query params (default 10 for better performance)
-        page_limit = int(request.GET.get('page_limit', 10))
+        page_limit = int(request.GET.get('page_limit', 100))
         
         preview_data = {}
         
@@ -257,7 +257,7 @@ def source_preview(request, source_id):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-def generate_pdf_preview(source, page_limit=10):
+def generate_pdf_preview(source, page_limit=100):
     """Generate preview for PDF files with improved performance"""
     try:
         # Use text_content from database if available (much faster)
@@ -341,7 +341,7 @@ def generate_docx_preview(source):
             paragraphs = [p.strip() for p in full_text.split('\n') if p.strip()]
             
             return {
-                'text': full_text[:2000] if len(full_text) > 2000 else full_text,
+                'text': full_text[:200000] if len(full_text) > 200000 else full_text,
                 'paragraph_count': len(paragraphs),
                 'word_count': len(full_text.split()),
                 'character_count': len(full_text),
@@ -364,7 +364,7 @@ def generate_docx_preview(source):
         full_text = '\n'.join(text_content)
         
         return {
-            'text_content': full_text[:2000] if len(full_text) > 2000 else full_text,
+            'text_content': full_text[:200000] if len(full_text) > 200000 else full_text,
             'paragraph_count': len(text_content),
             'word_count': len(full_text.split()),
             'character_count': len(full_text),
@@ -386,7 +386,7 @@ def generate_pptx_preview(source):
             slides_text = full_text.split('\n\n')  # Rough slide separation
             
             return {
-                'text': full_text[:2000] if len(full_text) > 2000 else full_text,
+                'text': full_text[:200000] if len(full_text) > 200000 else full_text,
                 'word_count': len(full_text.split()),
                 'character_count': len(full_text),
                 'estimated_slides': len([s for s in slides_text if s.strip()]),
@@ -413,7 +413,7 @@ def generate_pptx_preview(source):
             if slide_text:
                 slides_content.append({
                     'slide_number': i + 1,
-                    'content': '\n'.join(slide_text)[:500]  # Limit per slide
+                    'content': '\n'.join(slide_text)[:50000]  # Limit per slide
                 })
         
         # Create a combined text preview
@@ -424,7 +424,7 @@ def generate_pptx_preview(source):
         combined_text = '\n\n'.join(all_text)
         
         return {
-            'text_content': combined_text[:2000] if len(combined_text) > 2000 else combined_text,
+            'text_content': combined_text[:200000] if len(combined_text) > 200000 else combined_text,
             'slides': slides_content[:5],  # Show first 5 slides in detail
             'total_slides': len(prs.slides),
             'word_count': len(combined_text.split()),
@@ -446,7 +446,7 @@ def generate_txt_preview(source):
             words = content.split()
             
             return {
-                'text_content': content[:2000] if len(content) > 2000 else content,
+                'text_content': content[:200000] if len(content) > 200000 else content,
                 'line_count': len(lines),
                 'word_count': len(words),
                 'character_count': len(content),
@@ -471,7 +471,7 @@ def generate_txt_preview(source):
         words = content.split()
         
         return {
-            'text_content': content[:2000] if len(content) > 2000 else content,
+            'text_content': content[:200000] if len(content) > 200000 else content,
             'line_count': len(lines),
             'word_count': len(words),
             'character_count': len(content),
@@ -495,7 +495,7 @@ def generate_youtube_preview(source):
         # Use text_content from database if available (much faster)
         transcript_text = ""
         if source.text_content and isinstance(source.text_content, list) and len(source.text_content) > 0:
-            transcript_text = source.text_content[0][:1500]  # Limit for preview
+            transcript_text = source.text_content[0][:150000]  # Limit for preview
             
         # Get basic video information using yt-dlp (lightweight extraction)
         try:

@@ -31,7 +31,11 @@ import {
   useTheme,
   GlobalStyles,
   MenuItem,
-  Menu
+  Menu,
+  IconButton,
+  Tooltip,
+  Slide,
+  Fade
 } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -50,13 +54,16 @@ import {
   TableChart as ExcelIcon,
   Description as WordIcon,
   Replay as ReplayIcon,
-  Keyboard as KeyboardIcon
+  Keyboard as KeyboardIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+  Menu as MenuIcon
 } from '@mui/icons-material';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable'; 
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
-const SIDEBAR_WIDTH = 340;
+const SIDEBAR_WIDTH = 280; // Reduced sidebar width for more minimal layout
 
 const scrollbarStyles = (
   <GlobalStyles
@@ -291,8 +298,74 @@ const QuestionsPage = () => {
   const [error, setError] = useState('');
   const [showIntro, setShowIntro] = useState(true); 
   
+  // Add state for collapsible sidebars
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
+  
+  // Add state for question transition direction
+  const [transitionDirection, setTransitionDirection] = useState('left');
+  const [questionTransition, setQuestionTransition] = useState(true);
+
+  const soundRef = useRef(null); 
+  const retryRef = useRef(null);
+  // ⬆ Place at top level of your component (outside if-block)
+  const victorySoundRef = useRef(null);
+  const failureSoundRef = useRef(null);
+
+  useEffect(() => {
+    if (quizFinished) {
+      if (Math.round((score / allQuestions.length) * 100) >= 70) {
+        victorySoundRef.current?.play().catch(() => {});
+      } else {
+        failureSoundRef.current?.play().catch(() => {});
+      }
+    }
+  }, [quizFinished]); // Runs when quizFinished becomes true
+
+
+
+  useEffect(() => {
+    if (error && soundRef.current) {
+      soundRef.current.currentTime = 0;
+      soundRef.current.play().catch((err) => {
+        if (err.name !== 'AbortError') {
+          console.warn('Playback error:', err);
+        }
+      });
+    }
+  }, [error]); // ✅ triggers when error appears
+
+
+  const playClickSound = () => {
+    if (soundRef.current) {
+      soundRef.current.currentTime = 0; // Reset in case it's already playing
+      soundRef.current.play().catch((e) => {
+        console.warn("Sound play failed:", e);
+      });
+    }
+  };
+
+  const playretrySound = () => {
+    if (retryRef.current) {
+      retryRef.current.currentTime = 0; // Reset in case it's already playing
+      retryRef.current.play().catch((e) => {
+        console.warn("Sound play failed:", e);
+      });
+    }
+  };
+
+
   const handleDismissIntro = () => {
     setShowIntro(false);
+  };
+
+  // Toggle sidebar functions
+  const toggleLeftSidebar = () => {
+    setLeftSidebarOpen(!leftSidebarOpen);
+  };
+
+  const toggleRightSidebar = () => {
+    setRightSidebarOpen(!rightSidebarOpen);
   };
 
   useEffect(() => {
@@ -391,19 +464,57 @@ const QuestionsPage = () => {
     await new Promise(resolve => setTimeout(resolve, 2000));
     
     setScore(currentScore);
+
     setQuizFinished(true);
     setIsSubmitting(false);
+  };
+
+  const playRetrySound = () => {
+    if (retryRef.current) {
+      retryRef.current.currentTime = 0;
+      retryRef.current.play().catch((e) => {
+        console.warn("Retry sound play failed:", e);
+      });
+    }
   };
 
   const handleRetryQuiz = () => {
     setSelectedAnswers({});
     setScore(0);
     setQuizFinished(false);
+    playretrySound();
     if (quizPages.length > 0) {
       setCurrentQuizPage(quizPages[0]);
       setCurrentQuestionIndexOnPage(0);
     }
+    playretrySound();
   };
+
+  useEffect(() => {
+    const warmUpAudio = () => {
+      if (soundRef.current) {
+        soundRef.current.volume = 0;
+        soundRef.current.play().then(() => {
+          soundRef.current.pause();
+          soundRef.current.currentTime = 0;
+          soundRef.current.volume = 1; // reset volume
+        });
+      }
+    };
+  
+    // Warm up audio after user clicks anywhere
+    const clickHandler = () => {
+      warmUpAudio();
+      window.removeEventListener('click', clickHandler);
+    };
+  
+    window.addEventListener('click', clickHandler);
+  
+    return () => {
+      window.removeEventListener('click', clickHandler);
+    };
+  }, []);
+  
 
   // Keyboard navigation
   useEffect(() => {
@@ -463,23 +574,38 @@ const QuestionsPage = () => {
     };
   }, [currentQuizPage, currentQuestionIndexOnPage, allQuestions, selectedAnswers, quizFinished, isLoading, isSubmitting, currentQuestion, handleAnswerChange]);
 
+  // Modified navigation handlers to set transition direction
   const handleNextQuestion = () => {
-    const questionsOnCurrentPage = questionsByPage[currentQuizPage] || [];
-    if (currentQuestionIndexOnPage < questionsOnCurrentPage.length - 1) {
-      setCurrentQuestionIndexOnPage(prevIndex => prevIndex + 1);
-    } else {
-      // If on the last question of the current page, move to the next page
-      handleNextPage();
-    }
+    setTransitionDirection('left');
+    setQuestionTransition(false);
+    
+    // Small delay to allow exit animation
+    setTimeout(() => {
+      const questionsOnCurrentPage = questionsByPage[currentQuizPage] || [];
+      if (currentQuestionIndexOnPage < questionsOnCurrentPage.length - 1) {
+        setCurrentQuestionIndexOnPage(prevIndex => prevIndex + 1);
+      } else {
+        // If on the last question of the current page, move to the next page
+        handleNextPage();
+      }
+      setQuestionTransition(true);
+    }, 300);
   };
 
   const handlePreviousQuestion = () => {
-    if (currentQuestionIndexOnPage > 0) {
-      setCurrentQuestionIndexOnPage(prevIndex => prevIndex - 1);
-    } else {
-      // If on the first question of the current page, move to the previous page
-      handlePreviousPage();
-    }
+    setTransitionDirection('right');
+    setQuestionTransition(false);
+    
+    // Small delay to allow exit animation
+    setTimeout(() => {
+      if (currentQuestionIndexOnPage > 0) {
+        setCurrentQuestionIndexOnPage(prevIndex => prevIndex - 1);
+      } else {
+        // If on the first question of the current page, move to the previous page
+        handlePreviousPage();
+      }
+      setQuestionTransition(true);
+    }, 300);
   };
 
   const handleNextPage = () => {
@@ -534,30 +660,71 @@ const QuestionsPage = () => {
     }
   };
 
-  // Left Sidebar - Navigation
+  // Left Sidebar - Navigation with collapsible functionality
   const LeftSidebar = () => (
     <Drawer
-      variant="permanent"
+      variant="persistent"
+      open={leftSidebarOpen}
       sx={{
+        width: leftSidebarOpen ? SIDEBAR_WIDTH : 0,
         flexShrink: 0,
+        transition: theme.transitions.create(['width', 'margin'], {
+          easing: theme.transitions.easing.sharp,
+          duration: theme.transitions.duration.enteringScreen,
+        }),
         '& .MuiDrawer-paper': {
-          maxWidth: SIDEBAR_WIDTH,
-          width: '280px',
+          width: 310,
           boxSizing: 'border-box',
           backgroundColor: theme.palette.background.paper,
           borderRight: `1px solid ${theme.palette.divider}`,
           top: '80px',
-          direction: 'rtl',
           height: 'calc(100vh - 80px)',
+          transition: theme.transitions.create(['width', 'margin'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
+          overflowX: 'hidden',
         },
       }}
     >
-      {scrollbarStyles}
-      <Box sx={{ p: 3 }}>
-
-        <Typography variant="subtitle2" sx={{ mr:11, mb: 2, color: theme.palette.text.secondary}}>
-          Source Pages ({quizPages.length})
-        </Typography>
+      <GlobalStyles
+        styles={{
+          '*::-webkit-scrollbar': {
+            width: '8px',
+            height: '8px',
+          },
+          '*::-webkit-scrollbar-track': {
+            background: '#363636',
+            borderRadius: '4px',
+          },
+          '*::-webkit-scrollbar-thumb': {
+            background: '#FF6B35',
+            borderRadius: '4px',
+          },
+          '*::-webkit-scrollbar-thumb:hover': {
+            background: '#E64A19',
+          },
+          '*::-webkit-scrollbar-corner': {
+            background: 'transparent',
+          },
+          // For Firefox
+          '*': {
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#FF6B35 #363636',
+          },
+        }}
+      />
+      <Box sx={{ p: 3, overflowY: 'auto', height: '100%' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="subtitle2" sx={{ color: theme.palette.text.secondary }}>
+            Source Pages ({quizPages.length})
+          </Typography>
+          <Tooltip title="Collapse Sidebar">
+            <IconButton onClick={() => {playClickSound();toggleLeftSidebar();}} size="small">
+              <ChevronLeftIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
         
         <List sx={{ p: 0 }}>
           {quizPages.map((pageNum) => (
@@ -587,9 +754,70 @@ const QuestionsPage = () => {
             {Object.keys(selectedAnswers).length}/{allQuestions.length}  answered
           </Typography>
         </Box>
+
+
+        <Divider sx={{ my: 2 }} />
+        
+        <Stack spacing={1}>
+          <Button
+            variant="contained"
+            fullWidth
+            onClick={() => {playretrySound();handleSubmitQuiz();}}
+            startIcon={<CheckCircleOutlineIcon />}
+            disabled={Object.keys(selectedAnswers).length === 0}
+          >
+            Submit Quiz
+          </Button>
+          <Button
+            variant="outlined"
+            fullWidth
+            onClick={handleRetryQuiz}
+            startIcon={<ReplayIcon />}
+          >
+            Retry Quiz
+          </Button>
+        </Stack>
       </Box>
     </Drawer>
   );
+
+  // Left sidebar toggle button
+  const LeftSidebarToggle = () => {
+    if (leftSidebarOpen) return null; // Hide toggle when sidebar is open
+  
+    return (
+      <Box
+        sx={{
+          position: 'fixed',
+          left: 0,
+          top: '16.5%',
+          transform: 'translateY(-50%)',
+          zIndex: 1200,
+          transition: theme.transitions.create(['left'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
+        }}
+      >
+        <Tooltip title="Show Pages">
+          <IconButton
+            onClick={() => {playClickSound();toggleLeftSidebar();}}
+            sx={{
+              backgroundColor: theme.palette.background.paper,
+              border: `1px solid ${theme.palette.divider}`,
+              borderRadius: '0 4px 4px 0',
+              '&:hover': {
+                backgroundColor: theme.palette.action.hover,
+              },
+            }}
+          >
+            <ChevronRightIcon />
+          </IconButton>
+        </Tooltip>
+      </Box>
+    );
+  };
+  
 
   const PageListItem = ({ pageNum, questionsByPage, selectedAnswers, currentQuizPage, handlePageChange, theme }) => {
     const pageQuestions = questionsByPage[pageNum] || [];
@@ -635,29 +863,72 @@ const QuestionsPage = () => {
     );
   };
 
-  // Right Sidebar - Questions List
+  // Right Sidebar - Questions List with collapsible functionality
   const RightSidebar = () => (
     <Drawer
-      variant="permanent"
+      variant="persistent"
       anchor="right"
+      open={rightSidebarOpen}
       sx={{
-        width: SIDEBAR_WIDTH,
-        ml: 0,
+        width: rightSidebarOpen ? SIDEBAR_WIDTH : 0,
         flexShrink: 0,
+        transition: theme.transitions.create(['width', 'margin'], {
+          easing: theme.transitions.easing.sharp,
+          duration: theme.transitions.duration.enteringScreen,
+        }),
         '& .MuiDrawer-paper': {
-          width: SIDEBAR_WIDTH,
+          width: 310,
           boxSizing: 'border-box',
           backgroundColor: theme.palette.background.paper,
           borderLeft: `1px solid ${theme.palette.divider}`,
           top: '80px',
-          height: 'calc(120vh - 80px)',
+          height: 'calc(100vh - 70px)',
+          transition: theme.transitions.create(['width'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
+          overflowX: 'hidden',
         },
       }}
     >
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h6" sx={{ mb: 2, color: theme.palette.primary.main, fontWeight: 600 }}>
-          Questions
-        </Typography>
+      <GlobalStyles
+        styles={{
+          '*::-webkit-scrollbar': {
+            width: '8px',
+            height: '8px',
+          },
+          '*::-webkit-scrollbar-track': {
+            background: '#363636',
+            borderRadius: '4px',
+          },
+          '*::-webkit-scrollbar-thumb': {
+            background: '#FF6B35',
+            borderRadius: '4px',
+          },
+          '*::-webkit-scrollbar-thumb:hover': {
+            background: '#E64A19',
+          },
+          '*::-webkit-scrollbar-corner': {
+            background: 'transparent',
+          },
+          // For Firefox
+          '*': {
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#FF6B35 #363636',
+          },
+        }}
+      />
+      <Box sx={{ p: 2, overflowY: 'auto', height: '100%' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" sx={{ color: theme.palette.primary.main, fontWeight: 600 }}>
+            Questions
+          </Typography>
+          <Tooltip title="Collapse Sidebar">
+            <IconButton onClick={() => {playClickSound();toggleRightSidebar();}} size="small">
+              <ChevronRightIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
         
         <List sx={{ p: 0, maxHeight: 'calc(100vh - 300px)', overflow: 'hidden auto' }} ref={rightSidebarScrollRef}>
           {currentQuizPageQuestions.map((question, index) => (
@@ -673,30 +944,51 @@ const QuestionsPage = () => {
           ))}
         </List>
 
-        <Divider sx={{ my: 2 }} />
         
-        <Stack spacing={1}>
-          <Button
-            variant="contained"
-            fullWidth
-            onClick={handleSubmitQuiz}
-            startIcon={<CheckCircleOutlineIcon />}
-            disabled={Object.keys(selectedAnswers).length === 0}
-          >
-            Submit Quiz
-          </Button>
-          <Button
-            variant="outlined"
-            fullWidth
-            onClick={handleRetryQuiz}
-            startIcon={<ReplayIcon />}
-          >
-            Retry Quiz
-          </Button>
-        </Stack>
       </Box>
     </Drawer>
   );
+
+  // Right sidebar toggle button
+  const RightSidebarToggle = () => {
+    if (rightSidebarOpen) return null; // Do not render toggle if sidebar is open
+  
+    return (
+      <Box
+        sx={{
+          position: 'fixed',
+          right: 0,
+          top: '16.5%',
+          transform: 'translateY(-50%)',
+          zIndex: 1200,
+          transition: theme.transitions.create(['right'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
+        }}
+      >
+        <Tooltip title="Show Questions">
+          <IconButton
+            onClick={() => {
+              toggleRightSidebar();
+              playClickSound();
+            }}
+            sx={{
+              backgroundColor: theme.palette.background.paper,
+              border: `1px solid ${theme.palette.divider}`,
+              borderRadius: '4px 0 0 4px',
+              '&:hover': {
+                backgroundColor: theme.palette.action.hover,
+              },
+            }}
+          >
+            <ChevronLeftIcon />
+          </IconButton>
+        </Tooltip>
+      </Box>
+    );
+  };
+  
 
   const QuestionListItem = ({ question, index, currentQuestionIndexOnPage, handleQuestionSelect, getQuestionIcon, theme }) => {
     const questionRef = useRef(null);
@@ -751,6 +1043,8 @@ const QuestionsPage = () => {
     );
   };
 
+
+
   if (isLoading) {
     return (
       <Box sx={{ 
@@ -770,17 +1064,20 @@ const QuestionsPage = () => {
 
   if (error) {
     return (
-      <Container maxWidth="md" sx={{ mt: 8 }}>
-        <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
-          <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>
-          <Button variant="contained" onClick={() => navigate('/saved-files')}>
-            Back to Saved Files
-          </Button>
-        </Paper>
-      </Container>
+      <>
+        <audio ref={soundRef} src={`${process.env.PUBLIC_URL}/sounds/fin.mp3`} preload="auto" />
+        <Container maxWidth="md" sx={{ mt: 8 }}>
+          <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
+            <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>
+            <Button variant="contained" onClick={() => navigate('/saved-files')}>
+              Back to Saved Files
+            </Button>
+          </Paper>
+        </Container>
+      </>
     );
   }
-
+  
   if (quizFinished) {
     const percentage = Math.round((score / allQuestions.length) * 100);
 
@@ -820,6 +1117,8 @@ const QuestionsPage = () => {
     
     return (
       <>
+      <audio ref={victorySoundRef} src={`${process.env.PUBLIC_URL}/sounds/victory.mp3`} preload="auto" />
+      <audio ref={failureSoundRef} src={`${process.env.PUBLIC_URL}/sounds/failure.mp3`} preload="auto" />
         <Box
           sx={{
             p: 4,
@@ -867,7 +1166,7 @@ const QuestionsPage = () => {
                   variant="contained" 
                   size="large"
                   startIcon={<RefreshIcon />}
-                  onClick={handleRetryQuiz}
+                  onClick={() => {playretrySound();handleRetryQuiz();}}
                 >
                   Retry Quiz
                 </Button>
@@ -997,6 +1296,7 @@ const QuestionsPage = () => {
       </>
     );
   }
+  
 
   if (isSubmitting) {
     return (
@@ -1072,18 +1372,24 @@ const QuestionsPage = () => {
     );
   }
 
-    // Add the intro guide component
+  // Add the intro guide component
   if (showIntro && !isLoading && !error && !quizFinished && !isSubmitting) {
     return (
       <>
         <LeftSidebar />
+        <LeftSidebarToggle />
         <RightSidebar />
+        <RightSidebarToggle />
         <Box
           sx={{
-            marginLeft: `280px`,
-            marginRight: `${SIDEBAR_WIDTH}px`,
+            marginLeft: leftSidebarOpen ? `${SIDEBAR_WIDTH}px` : '0',
+            marginRight: rightSidebarOpen ? `${SIDEBAR_WIDTH}px` : '0',
             minHeight: '80vh',
             mt: 2,
+            transition: theme.transitions.create(['margin'], {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.enteringScreen,
+            }),
           }}
         >
           {/* Main content in the background */}
@@ -1355,7 +1661,7 @@ const QuestionsPage = () => {
                   </Typography>
                   <Stack spacing={2}>
                     {[
-                      { key: '1-9', action: 'Select by Number' },
+                      { key: '1-4', action: 'Select by Number' },
                       { key: 'A-D', action: 'Select by Letter' },
                       { key: 'Space', action: 'Select First Option' }
                     ].map(({ key, action }) => (
@@ -1406,7 +1712,7 @@ const QuestionsPage = () => {
             <Button
               variant="contained"
               size="large"
-              onClick={handleDismissIntro}
+              onClick={() => {playClickSound();handleDismissIntro();}}
               sx={{ 
                 minWidth: '200px',
                 mr: 3,
@@ -1430,18 +1736,29 @@ const QuestionsPage = () => {
 
   return (
     <>
+      <audio ref={soundRef} src={`${process.env.PUBLIC_URL}/sounds/button-click.mp3`} preload="auto" />
+      <audio ref={retryRef} src={`${process.env.PUBLIC_URL}/sounds/retry.mp3`} preload="auto" />
+      <audio ref={victorySoundRef} src={`${process.env.PUBLIC_URL}/sounds/victory.mp3`} preload="auto" />
+      <audio ref={failureSoundRef} src={`${process.env.PUBLIC_URL}/sounds/failure.mp3`} preload="auto" />
+
       <LeftSidebar />
+      <LeftSidebarToggle />
       <RightSidebar />
+      <RightSidebarToggle />
       <Box
         sx={{
-          marginLeft: `280px`,
-          marginRight: `${SIDEBAR_WIDTH}px`,
+          marginLeft: leftSidebarOpen ? `${SIDEBAR_WIDTH}px` : '0',
+          marginRight: rightSidebarOpen ? `${SIDEBAR_WIDTH}px` : '0',
           minHeight: '80vh',
           mt: 2,
+          transition: theme.transitions.create(['margin'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
         }}
       >
         <Container maxWidth="lg">
-          <Paper elevation={6} sx={{ p: 2, minHeight: '70vh' }}>
+          <Paper elevation={6} sx={{ p: 2, minHeight: '70vh', overflow: 'hidden' }}>
             <Box sx={{ mb: 4 }}>
               <Chip 
                 label={`Source Page ${currentQuizPage}`}
@@ -1454,66 +1771,74 @@ const QuestionsPage = () => {
               />
             </Box>
             
-            {currentQuestion ? (
-              <Box sx={{ minHeight: '400px' }}>
-                <FormControl component="fieldset" sx={{ width: '100%' }}>
-                  <FormLabel component="legend" sx={{ 
-                    typography: 'h5', 
-                    mb: 1,
-                    color: theme.palette.text.primary,
-                    fontWeight: 500,
-                    lineHeight: 1.4
-                  }}>
-                    {currentQuestion.question_text}
-                  </FormLabel>
-                  
-                  <RadioGroup
-                    value={selectedAnswers[currentQuestion.id] || ''}
-                    onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
-                    sx={{ mt: 2 }}
-                  >
-                    {Object.entries(currentQuestion.options).map(([key, value]) => (
-                      <Paper
-                        key={key}
-                        elevation={selectedAnswers[currentQuestion.id] === key ? 3 : 1}
-                        sx={{
-                          p: 2,
-                          mb: 2,
-                          border: selectedAnswers[currentQuestion.id] === key 
-                            ? `2px solid ${theme.palette.primary.main}`
-                            : `1px solid ${theme.palette.divider}`,
-                          backgroundColor: selectedAnswers[currentQuestion.id] === key
-                            ? theme.palette.primary.main + '10'
-                            : 'transparent',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
-                          '&:hover': {
-                            backgroundColor: theme.palette.primary.main + '05',
-                          }
-                        }}
-                      >
-                        <FormControlLabel 
-                          value={key}
-                          control={<Radio />}
-                          label={
-                            <Typography variant="body1" sx={{ fontSize: '1.1rem', ml: 1 }}>
-                              <strong>{key}.</strong> {value}
-                            </Typography>
-                          }
-                          sx={{ margin: 0, width: '100%' }}
-                        />
-                      </Paper>
-                    ))}
-                  </RadioGroup>
-                </FormControl>
+            <Slide direction={transitionDirection} in={questionTransition} mountOnEnter unmountOnExit timeout={300}>
+              <Box>
+                {currentQuestion ? (
+                  <Box sx={{ minHeight: '400px' }}>
+                    <FormControl component="fieldset" sx={{ width: '100%' }}>
+                      <FormLabel component="legend" sx={{ 
+                        typography: 'h5', 
+                        mb: 1,
+                        color: theme.palette.text.primary,
+                        fontWeight: 500,
+                        lineHeight: 1.4
+                      }}>
+                        {currentQuestion.question_text}
+                          </FormLabel>
+                      
+                          <RadioGroup
+                          value={selectedAnswers[currentQuestion.id] || ''}
+                          onChange={(e) => {
+                            playClickSound(); // 🔊 Play sound on option select
+                            handleAnswerChange(currentQuestion.id, e.target.value);
+                          }}
+                          sx={{ mt: 2 }}
+                        >
+                          {Object.entries(currentQuestion.options).map(([key, value]) => (
+                            <Paper
+                              key={key}
+                              elevation={selectedAnswers[currentQuestion.id] === key ? 3 : 1}
+                              sx={{
+                                p: 2,
+                                mb: 2,
+                                border: selectedAnswers[currentQuestion.id] === key 
+                                  ? `2px solid ${theme.palette.primary.main}`
+                                  : `1px solid ${theme.palette.divider}`,
+                                backgroundColor: selectedAnswers[currentQuestion.id] === key
+                                  ? theme.palette.primary.main + '10'
+                                  : 'transparent',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                '&:hover': {
+                                  backgroundColor: theme.palette.primary.main + '05',
+                                }
+                              }}
+                            >
+                              <FormControlLabel 
+                                value={key}
+                                control={<Radio />}
+                                label={
+                                  <Typography variant="body1" sx={{ fontSize: '1.1rem', ml: 1 }}>
+                                    <strong>{key}.</strong> {value}
+                                  </Typography>
+                                }
+                                sx={{ margin: 0, width: '100%' }}
+                              />
+                            </Paper>
+                          ))}
+                        </RadioGroup>
+
+                    </FormControl>
+                  </Box>
+                ) : (
+                  <Box sx={{ textAlign: 'center', py: 8 }}>
+                    <Typography variant="h6" color="text.secondary">
+                      No questions available on this page
+                    </Typography>
+                  </Box>
+                )}
               </Box>
-            ) : (
-              <Box sx={{ textAlign: 'center', py: 8 }}>
-                <Typography variant="h6" color="text.secondary">
-                  No questions available on this page
-                </Typography>
-              </Box>
-            )}
+            </Slide>
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
               <Button
@@ -1521,16 +1846,8 @@ const QuestionsPage = () => {
                 size="large"
                 startIcon={<ArrowBackIcon />}
                 onClick={() => {
-                  if (currentQuestionIndexOnPage > 0) {
-                    setCurrentQuestionIndexOnPage(currentQuestionIndexOnPage - 1);
-                  } else {
-                    const currentPageIndex = quizPages.indexOf(currentQuizPage);
-                    if (currentPageIndex > 0) {
-                      const prevPage = quizPages[currentPageIndex - 1];
-                      setCurrentQuizPage(prevPage);
-                      setCurrentQuestionIndexOnPage((questionsByPage[prevPage] || []).length - 1);
-                    }
-                  }
+                  playClickSound();       // Play sound
+                  handlePreviousQuestion();   // Your existing function
                 }}
                 disabled={currentQuestionIndexOnPage === 0 && quizPages.indexOf(currentQuizPage) === 0}
               >
@@ -1541,16 +1858,8 @@ const QuestionsPage = () => {
                 size="large"
                 endIcon={<ArrowForwardIcon />}
                 onClick={() => {
-                  if (currentQuestionIndexOnPage < currentQuizPageQuestions.length - 1) {
-                    setCurrentQuestionIndexOnPage(currentQuestionIndexOnPage + 1);
-                  } else {
-                    const currentPageIndex = quizPages.indexOf(currentQuizPage);
-                    if (currentPageIndex < quizPages.length - 1) {
-                      const nextPage = quizPages[currentPageIndex + 1];
-                      setCurrentQuizPage(nextPage);
-                      setCurrentQuestionIndexOnPage(0);
-                    }
-                  }
+                  playClickSound();       // Play sound
+                  handleNextQuestion();   // Your existing function
                 }}
                 disabled={
                   currentQuestionIndexOnPage >= currentQuizPageQuestions.length - 1 && 
@@ -1559,6 +1868,7 @@ const QuestionsPage = () => {
               >
                 Next
               </Button>
+
             </Box>
           </Paper>
         </Container>

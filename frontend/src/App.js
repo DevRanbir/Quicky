@@ -254,7 +254,7 @@ function App() {
         }}>
           <Routes>
             {/* Home page as default route */}
-            <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<HomePage />} />
             <Route path="/upload" element={<UploadPage />} />
             <Route path="/saved-files" element={<SavedFilesPage />} />
             <Route path="/questions/:sourceId" element={<QuestionsPage />} /> 

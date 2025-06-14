@@ -423,11 +423,10 @@ const SavedFilesPage = () => {
     setSelectedSource(source);
     setPagesToGenerate(source.source_type === 'PDF' && source.page_count ? `1-${source.page_count}` : '');
     setQuestionsPerPage('5');
-    setTotalQuestionLimit(source.source_type === 'PDF' && source.page_count ? Math.min(100, source.page_count * 5) : 20);
+    setTotalQuestionLimit(source.source_type === 'PDF' && source.page_count ? Math.min(1000, source.page_count * 5) : 100);
     setTimeRange('');
     setConfigOpen(true);
-    // Optionally, ensure full preview is loaded for quiz config if needed by backend
-    // fetchFullPreview(source); 
+    fetchFullPreview(source); 
   };
 
   const handleStartQuiz = async () => {
@@ -707,17 +706,22 @@ const SavedFilesPage = () => {
               />
             )}
 
-            {/* Show slider for PDF, YouTube, or other types */}
-            <Typography gutterBottom>Total Question Limit (max 100)</Typography>
-            <Slider
-              value={totalQuestionLimit}
-              onChange={(e, newValue) => setTotalQuestionLimit(newValue)}
-              min={5}
-              max={100}
-              step={5}
-              marks
-              valueLabelDisplay="auto"
-            />
+            {/* Show slider for all types EXCEPT PDFs */}
+            {selectedSource?.source_type !== 'PDF' && (
+              <>
+                <Typography gutterBottom>Total Question Limit (max 100)</Typography>
+                <Slider
+                  value={totalQuestionLimit}
+                  onChange={(e, newValue) => setTotalQuestionLimit(newValue)}
+                  min={5}
+                  max={100}
+                  step={5}
+                  marks
+                  valueLabelDisplay="auto"
+                />
+              </>
+            )}
+
         </DialogContent>
 
         )}

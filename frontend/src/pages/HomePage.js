@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Typography,
@@ -10,6 +10,7 @@ import {
   Stack,
   Chip,
   Divider,
+  Fab,
 } from '@mui/material';
 import {
   CloudUpload as CloudUploadIcon,
@@ -22,12 +23,40 @@ import {
   AutoAwesome as AutoAwesomeIcon,
   Speed as SpeedIcon,
   Security as SecurityIcon,
-  Image as ImageIcon
+  Image as ImageIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const [showScrollButton, setShowScrollButton] = useState(true);
+
+  // Check scroll position to show/hide the scroll button
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const windowHeight = window.innerHeight;
+      
+      // Show button only when user is in the top viewport area (first screen)
+      setShowScrollButton(scrollTop < windowHeight * 0.1);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Scroll to features section
+  const scrollToFeatures = () => {
+    const featuresSection = document.getElementById('features-section');
+    if (featuresSection) {
+      featuresSection.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+  };
 
   const features = [
     {
@@ -53,7 +82,6 @@ const HomePage = () => {
     { extension: 'PPTX', description: 'Presentations, slides, lectures' },
     { extension: 'TXT', description: 'Plain text, articles, notes' },
     { extension: 'Yt link', description: 'Any YouTube Video link not LiveStreams' },
-
   ];
 
   const exportOptions = [
@@ -65,9 +93,48 @@ const HomePage = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
+      {/* Scroll Down Button */}
+      <Fade in={showScrollButton} timeout={300}>
+        <Fab
+          onClick={scrollToFeatures}
+          sx={{
+            position: 'fixed',
+            bottom: 30,
+            right: 30,
+            zIndex: 1000,
+            background: 'linear-gradient(45deg, #FF6B35, #FF8A65)',
+            color: 'white',
+            '&:hover': {
+              background: 'linear-gradient(45deg, #E64A19, #FF6B35)',
+              transform: 'scale(1.1)',
+            },
+            transition: 'all 0.3s ease',
+            animation: 'bounce 2s infinite',
+            '@keyframes bounce': {
+              '0%, 20%, 50%, 80%, 100%': {
+                transform: 'translateY(0)',
+              },
+              '40%': {
+                transform: 'translateY(-10px)',
+              },
+              '60%': {
+                transform: 'translateY(-5px)',
+              },
+            },
+          }}
+        >
+          <KeyboardArrowDownIcon />
+        </Fab>
+      </Fade>
+
       {/* Hero Section */}
       <Fade in timeout={800}>
-        <Box textAlign="center" sx={{ mb: 8 }}>
+        <Box textAlign="center" sx={{ mb: 8, minHeight: '80vh', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <DotLottieReact 
+            src="https://lottie.host/19d34026-719b-4d13-b65f-515366dd201b/mGeiaHU9Xz.lottie"
+            loop
+            autoplay
+          />
           <Typography 
             variant="h2" 
             component="h1" 
@@ -80,9 +147,9 @@ const HomePage = () => {
               mb: 2,
             }}
           >
-            Smart Quiz Generator
+            Quick Quiz Generator
           </Typography>
-          <Typography 
+          <Typography id="features-section"
             variant="h5" 
             color="text.secondary" 
             sx={{ 
@@ -120,7 +187,7 @@ const HomePage = () => {
 
       {/* Features Section */}
       <Fade in timeout={1000}>
-        <Box sx={{ mb: 8 }}>
+        <Box sx={{ mb: 8 }} >
           <Grid container spacing={4}>
             {features.map((feature, index) => (
               <Grid item xs={12} md={4} key={index}>

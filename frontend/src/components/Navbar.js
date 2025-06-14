@@ -12,6 +12,13 @@ import {
   Snackbar,
   Alert,
 } from '@mui/material';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import VolumeOffIcon from '@mui/icons-material/VolumeOff';
+
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { ReactComponent as LogoIcon } from './icon.svg'; 
 import axios from 'axios';
@@ -30,10 +37,86 @@ const Navbar = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('info');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
+
+  const toggleSound = () => {
+    setSoundOn((prev) => {
+      const newState = !prev;
+  
+      // Mute or unmute all <audio> and <video> elements
+      const mediaElements = document.querySelectorAll('audio, video');
+      mediaElements.forEach((el) => {
+        el.muted = !newState;
+      });
+  
+      return newState;
+    });
+  };
+  
+  
+  // Fullscreen toggle handler
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+      setIsFullscreen(true);
+    } else if (document.exitFullscreen) {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
+
+  const renderSoundToggleButton = () => (
+    <Tooltip title={soundOn ? 'Mute Website' : 'Unmute Website'}>
+      <Button onClick={toggleSound} sx={commonButtonSx}>
+        {soundOn ? <VolumeUpIcon /> : <VolumeOffIcon />}
+      </Button>
+    </Tooltip>
+  );
+  
+
+  // Theme toggle handler
+  const toggleTheme = () => {
+    setDarkMode((prev) => !prev);
+    // If using MUI theme provider, call context or state update here instead
+  };
 
   const isActiveRoute = (path) => {
     return location.pathname === path;
   };
+
+  // Common button style
+  const commonButtonSx = {
+    minWidth: '40px',
+    width: '40px',
+    height: '40px',
+    borderRadius: '50%',
+    p: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: 'rgba(255, 255, 255, 0.7)',
+    '&:hover': {
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    },
+  };
+
+  // Fullscreen button
+  const renderFullscreenToggleButton = () => (
+    <Tooltip title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}>
+      <Button onClick={toggleFullscreen} sx={commonButtonSx}>
+        {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+      </Button>
+    </Tooltip>
+  );
+
+  // Theme toggle button
+  const renderThemeToggleButton = () => (
+    <Tooltip title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
+      <Button onClick={toggleTheme} sx={commonButtonSx}>
+        {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
+      </Button>
+    </Tooltip>
+  );
 
   // Function to check backend status
   const checkBackendStatus = async () => {
@@ -332,8 +415,10 @@ const Navbar = () => {
           >
             Saved Files
           </Button>
-          
-          {/* Backend Status Button */}
+                  
+          {renderFullscreenToggleButton()}
+          {renderThemeToggleButton()}
+          {renderSoundToggleButton()}
           {renderBackendStatusButton()}
         </Box>
       </Toolbar>

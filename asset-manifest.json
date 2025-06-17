@@ -1,20 +1,20 @@
 {
   "files": {
     "main.css": "/Quicky/static/css/main.0b23ed84.css",
-    "main.js": "/Quicky/static/js/main.fe2d33d0.js",
+    "main.js": "/Quicky/static/js/main.89ffa81a.js",
     "static/js/239.8a991ef4.chunk.js": "/Quicky/static/js/239.8a991ef4.chunk.js",
     "static/js/977.2d67b2a2.chunk.js": "/Quicky/static/js/977.2d67b2a2.chunk.js",
     "static/js/455.075d31dc.chunk.js": "/Quicky/static/js/455.075d31dc.chunk.js",
     "static/media/icon.svg": "/Quicky/static/media/icon.abafdbd8fbe680f8631172c7c4d7d99c.svg",
     "index.html": "/Quicky/index.html",
     "main.0b23ed84.css.map": "/Quicky/static/css/main.0b23ed84.css.map",
-    "main.fe2d33d0.js.map": "/Quicky/static/js/main.fe2d33d0.js.map",
+    "main.89ffa81a.js.map": "/Quicky/static/js/main.89ffa81a.js.map",
     "239.8a991ef4.chunk.js.map": "/Quicky/static/js/239.8a991ef4.chunk.js.map",
     "977.2d67b2a2.chunk.js.map": "/Quicky/static/js/977.2d67b2a2.chunk.js.map",
     "455.075d31dc.chunk.js.map": "/Quicky/static/js/455.075d31dc.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.0b23ed84.css",
-    "static/js/main.fe2d33d0.js"
+    "static/js/main.89ffa81a.js"
   ]
 }

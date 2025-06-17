@@ -11,7 +11,6 @@ import {
   Alert,
   FormControl,
   FormLabel,
-  RadioGroup,
   FormControlLabel,
   Radio,
   Fade,
@@ -19,6 +18,7 @@ import {
   Stack,
   Tooltip,
   IconButton,
+  Grid, // Import Grid for responsive layout
 } from '@mui/material';
 import {
   CloudUpload as CloudUploadIcon,
@@ -27,12 +27,12 @@ import {
   CheckCircle as CheckCircleIcon,
   Info as InfoIcon,
   TextFields as TextFieldsIcon,
-  Image as ImageIcon, // Added ImageIcon
+  Image as ImageIcon,
   AutoAwesome as AutoAwesomeIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import Tesseract from 'tesseract.js'; // Added Tesseract.js import
+import Tesseract from 'tesseract.js';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_FILE_TYPES = [
@@ -59,7 +59,7 @@ const FILE_TYPE_LABELS = {
   '.bmp': 'BMP Image'
 };
 
-const MIN_WORDS = 100; // Minimum words for generating 10-20 questions
+const MIN_WORDS = 100;
 
 const UploadPage = () => {
   const [uploadType, setUploadType] = useState('file');
@@ -67,7 +67,7 @@ const UploadPage = () => {
   const [youtubeLink, setYoutubeLink] = useState('');
   const [textContent, setTextContent] = useState('');
   const [textTitle, setTextTitle] = useState('');
-  const [imageName, setImageName] = useState(''); // Added for image name input
+  const [imageName, setImageName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [error, setError] = useState('');
@@ -94,7 +94,6 @@ const UploadPage = () => {
       return `Unsupported file type for image upload. Please use: ${Object.values(FILE_TYPE_LABELS).filter(label => label.includes('Image')).join(', ')}`;
     }
 
-    // For 'file' upload type, exclude image types from validation if we are not in 'image' mode
     const validFileTypesForFileMode = ALLOWED_FILE_TYPES.filter(type => !type.startsWith('image/'));
     const validExtensionsForFileMode = ALLOWED_EXTENSIONS.filter(ext => !['.png', '.jpg', '.jpeg', '.webp', '.bmp'].includes(ext));
 
@@ -102,7 +101,6 @@ const UploadPage = () => {
       return `Unsupported file type. Please use: ${Object.values(FILE_TYPE_LABELS).filter(label => !label.includes('Image')).join(', ')}`;
     }
     
-    // General validation for other types or if specific checks didn't catch it
     if (uploadType !== 'file' && uploadType !== 'image' && (!ALLOWED_EXTENSIONS.includes(fileExtension) || !ALLOWED_FILE_TYPES.includes(selectedFile.type))) {
       return `Unsupported file type. Please use: ${Object.values(FILE_TYPE_LABELS).join(', ')}`;
     }
@@ -158,7 +156,6 @@ const UploadPage = () => {
     resetMessages();
   };
   
-  // Function to generate content using Groq API
   const generateContentWithAI = async () => {
     if (!textTitle.trim()) {
       setError('Please enter a title to generate content');
@@ -169,9 +166,7 @@ const UploadPage = () => {
     resetMessages();
     
     try {
-      // Call to Groq API
       const response = await axios.post('/content_generation/generate-content/', { title: textTitle })
-
       
       if (response.data && response.data.content) {
         setTextContent(response.data.content);
@@ -227,7 +222,6 @@ const UploadPage = () => {
           throw new Error(textValidationError);
         }
         
-        // Create a text file from the input
         const fileName = `${textTitle.trim()}.txt`;
         const textBlob = new Blob([textContent], { type: 'text/plain' });
         const textFile = new File([textBlob], fileName, { type: 'text/plain' });
@@ -244,7 +238,7 @@ const UploadPage = () => {
         
         setSuccess('Extracting text from image... This may take a moment.');
         const { data: { text } } = await Tesseract.recognize(file, 'eng', {
-          logger: m => console.log(m) // Optional: for progress logging
+          logger: m => console.log(m)
         });
         
         if (!text || text.trim().length === 0) {
@@ -276,14 +270,12 @@ const UploadPage = () => {
       const contentType = contentTypeMap[uploadType];
       setSuccess(`✨ Successfully processed ${contentType}! Redirecting to your saved files...`);
       
-      // Reset form
       setFile(null);
       setYoutubeLink('');
       setTextContent('');
       setTextTitle('');
       setImageName('');
       
-      // Navigate after delay
       setTimeout(() => navigate('/saved-files'), 2000);
       
     } catch (err) {
@@ -312,18 +304,18 @@ const UploadPage = () => {
   const isTextValid = uploadType === 'text' ? wordCount >= MIN_WORDS && textTitle.trim() : true;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 2, width: '985px' }}>
+    // Adjusted Container to be more fluid
+    <Container maxWidth="lg" sx={{ py: { xs: 1, md: 1 } }}>
       <Fade in timeout={600}>
         <Paper 
           elevation={0} 
           sx={{ 
-            p: 5, 
+            p: { xs: 2, sm: 3, md: 5 }, // Responsive padding
             background: 'linear-gradient(135deg, #2D2D2D 0%, #363636 100%)',
             border: '1px solid #404040',
             borderRadius: 3,
           }}
         >
-          {/* Header */}
           <Box textAlign="center" mb={4}>
             <Typography 
               variant="h3" 
@@ -335,6 +327,7 @@ const UploadPage = () => {
                 WebkitTextFillColor: 'transparent',
                 fontWeight: 700,
                 mb: 1,
+                fontSize: { xs: '1.5rem', sm: '3rem' } // Responsive font size
               }}
             >
               Create Your Quiz
@@ -344,7 +337,6 @@ const UploadPage = () => {
             </Typography>
           </Box>
 
-          {/* Upload Type Selection */}
           <FormControl component="fieldset" sx={{ mb: 4, width: '100%' }}>
             <FormLabel 
               component="legend" 
@@ -357,82 +349,54 @@ const UploadPage = () => {
             >
               Choose Content Source
             </FormLabel>
-            <RadioGroup 
-              row 
-              value={uploadType} 
-              onChange={(e) => {
-                setUploadType(e.target.value);
-                resetMessages();
-                setFile(null);
-                setYoutubeLink('');
-                setTextContent('');
-                setTextTitle('');
-                setImageName('');
-              }}
-              sx={{
-                gap: 2,
-                '& .MuiFormControlLabel-root': {
-                  border: '1px solid #404040',
-                  borderRadius: 2,
-                  px: 2,
-                  py: 1,
-                  margin: 0,
-                  transition: 'all 0.2s ease',
-                  '&:hover': {
-                    borderColor: 'primary.main',
-                    backgroundColor: 'rgba(255, 107, 53, 0.05)',
-                  },
-                },
-                '& .Mui-checked + .MuiFormControlLabel-label': {
-                  color: 'primary.main',
-                },
-              }}
-            >
-              <FormControlLabel 
-                value="file" 
-                control={<Radio />} 
-                label={
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <AttachFileIcon fontSize="small" />
-                    <span>Upload File</span>
-                  </Box>
-                } 
-              />
-              <FormControlLabel 
-                value="youtube" 
-                control={<Radio />} 
-                label={
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <YouTubeIcon fontSize="small" />
-                    <span>Yt Video</span>
-                  </Box>
-                } 
-              />
-              <FormControlLabel 
-                value="text" 
-                control={<Radio />} 
-                label={
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <TextFieldsIcon fontSize="small" />
-                    <span>Text weave</span>
-                  </Box>
-                } 
-              />
-              <FormControlLabel 
-                value="image" 
-                control={<Radio />} 
-                label={
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <ImageIcon fontSize="small" />
-                    <span>Upload Image</span>
-                  </Box>
-                } 
-              />
-            </RadioGroup>
+            {/* Used Grid for responsive radio buttons */}
+            <Grid container spacing={2}>
+              {[
+                { value: 'file', icon: <AttachFileIcon fontSize="small" />, label: 'Upload File' },
+                { value: 'youtube', icon: <YouTubeIcon fontSize="small" />, label: 'Yt Video' },
+                { value: 'text', icon: <TextFieldsIcon fontSize="small" />, label: 'Text weave' },
+                { value: 'image', icon: <ImageIcon fontSize="small" />, label: 'Upload Image' },
+              ].map(item => (
+                <Grid item xs={12} sm={6} md={3} key={item.value}>
+                  <FormControlLabel
+                    value={item.value}
+                    control={<Radio checked={uploadType === item.value} />}
+                    onChange={(e) => {
+                      setUploadType(e.target.value);
+                      resetMessages();
+                      setFile(null);
+                      setYoutubeLink('');
+                      setTextContent('');
+                      setTextTitle('');
+                      setImageName('');
+                    }}
+                    label={
+                      <Box display="flex" alignItems="center" gap={1}>
+                        {item.icon}
+                        <span>{item.label}</span>
+                      </Box>
+                    }
+                    sx={{
+                      width: '100%',
+                      border: '1px solid',
+                      borderColor: uploadType === item.value ? 'primary.main' : '#404040',
+                      borderRadius: 2,
+                      py: 1,
+                      px: 2,
+                      m: 0, // Reset margin
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        backgroundColor: 'rgba(255, 107, 53, 0.05)',
+                      },
+                    }}
+                  />
+                </Grid>
+              ))}
+            </Grid>
           </FormControl>
 
           <form onSubmit={handleSubmit}>
-            {/* File Upload Section */}
             {uploadType === 'file' && (
               <Fade in timeout={300}>
                 <Box sx={{ mb: 4 }}>
@@ -453,40 +417,20 @@ const UploadPage = () => {
                   >
                     {file ? (
                       <Box>
-                        <CheckCircleIcon 
-                          sx={{ fontSize: 48, color: 'success.main', mb: 2 }} 
-                        />
-                        <Typography variant="h6" gutterBottom>
-                          {file.name}
-                        </Typography>
+                        <CheckCircleIcon sx={{ fontSize: 48, color: 'success.main', mb: 2 }} />
+                        <Typography variant="h6" gutterBottom>{file.name}</Typography>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
                           {(file.size / 1024 / 1024).toFixed(2)} MB • {getFileIcon(file.name)}
                         </Typography>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          onClick={() => setFile(null)}
-                          sx={{ mt: 1 }}
-                        >
+                        <Button variant="outlined" size="small" onClick={() => setFile(null)} sx={{ mt: 1 }}>
                           Choose Different File
                         </Button>
                       </Box>
                     ) : (
                       <Box>
-                        <Button
-                          variant="contained"
-                          component="label"
-                          size="large"
-                          startIcon={<CloudUploadIcon />}
-                          sx={{ mb: 2 }}
-                        >
+                        <Button variant="contained" component="label" size="large" startIcon={<CloudUploadIcon />} sx={{ mb: 2 }}>
                           Choose File
-                          <input 
-                            type="file" 
-                            hidden 
-                            onChange={handleFileChange} 
-                            accept={uploadType === 'image' ? 'image/*' : ALLOWED_EXTENSIONS.filter(ext => !['.png', '.jpg', '.jpeg', '.webp', '.bmp'].includes(ext)).join(',')}
-                          />
+                          <input type="file" hidden onChange={handleFileChange} accept={ALLOWED_EXTENSIONS.filter(ext => !['.png', '.jpg', '.jpeg', '.webp', '.bmp'].includes(ext)).join(',')} />
                         </Button>
                         <Typography variant="body2" color="text.secondary">
                           Drop your file here or click to browse
@@ -495,50 +439,35 @@ const UploadPage = () => {
                     )}
                   </Box>
                   
-                  {/* File Type Info */}
                   <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                    <Tooltip title="Supported file formats">
-                      <InfoIcon fontSize="small" color="action" />
-                    </Tooltip>
-                    <Stack direction="row" spacing={1}>
+                    <Tooltip title="Supported file formats"><InfoIcon fontSize="small" color="action" /></Tooltip>
+                    <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                       {Object.entries(FILE_TYPE_LABELS)
-                        .filter(([ext, label]) => uploadType === 'image' ? label.includes('Image') : !label.includes('Image'))
+                        .filter(([ext, label]) => !label.includes('Image'))
                         .map(([ext, label]) => (
-                        <Chip 
-                          key={ext}
-                          label={label} 
-                          size="small" 
-                          variant="outlined"
-                          sx={{ fontSize: '0.75rem' }}
-                        />
+                        <Chip key={ext} label={label} size="small" variant="outlined" sx={{ fontSize: '0.75rem' }} />
                       ))}
                     </Stack>
-                    <Typography variant="caption" color="text.secondary">
-                      • Max 10MB
-                    </Typography>
+                    <Typography variant="caption" color="text.secondary">• Max 10MB</Typography>
                   </Box>
                 </Box>
               </Fade>
             )}
 
-            {/* Image Upload Section */}
             {uploadType === 'image' && (
               <Fade in timeout={300}>
                 <Box sx={{ mb: 4 }}>
                    <TextField
                     fullWidth
-                    label="Name for Extracted Text File (e.g., 'invoice_details')"
+                    label="Name for Extracted Text File"
                     variant="outlined"
                     value={imageName}
                     onChange={handleImageNameChange}
-                    placeholder="Enter a name..."
+                    placeholder="e.g., 'invoice_details'"
                     sx={{
                       mb: 3,
                       '& .MuiOutlinedInput-root': {
-                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                          borderColor: 'primary.main',
-                          borderWidth: 2,
-                        },
+                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main', borderWidth: 2 },
                       },
                     }}
                   />
@@ -559,40 +488,20 @@ const UploadPage = () => {
                   >
                     {file ? (
                       <Box>
-                        <CheckCircleIcon 
-                          sx={{ fontSize: 48, color: 'success.main', mb: 2 }} 
-                        />
-                        <Typography variant="h6" gutterBottom>
-                          {file.name}
-                        </Typography>
+                        <CheckCircleIcon sx={{ fontSize: 48, color: 'success.main', mb: 2 }} />
+                        <Typography variant="h6" gutterBottom>{file.name}</Typography>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
                           {(file.size / 1024 / 1024).toFixed(2)} MB • {getFileIcon(file.name)}
                         </Typography>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          onClick={() => setFile(null)}
-                          sx={{ mt: 1 }}
-                        >
+                        <Button variant="outlined" size="small" onClick={() => setFile(null)} sx={{ mt: 1 }}>
                           Choose Different Image
                         </Button>
                       </Box>
                     ) : (
                       <Box>
-                        <Button
-                          variant="contained"
-                          component="label"
-                          size="large"
-                          startIcon={<CloudUploadIcon />}
-                          sx={{ mb: 2 }}
-                        >
+                        <Button variant="contained" component="label" size="large" startIcon={<CloudUploadIcon />} sx={{ mb: 2 }}>
                           Choose Image
-                          <input 
-                            type="file" 
-                            hidden 
-                            onChange={handleFileChange} 
-                            accept="image/*" 
-                          />
+                          <input type="file" hidden onChange={handleFileChange} accept="image/*" />
                         </Button>
                         <Typography variant="body2" color="text.secondary">
                           Drop your image here or click to browse
@@ -601,33 +510,21 @@ const UploadPage = () => {
                     )}
                   </Box>
                   
-                  {/* File Type Info */}
                   <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                    <Tooltip title="Supported image formats">
-                      <InfoIcon fontSize="small" color="action" />
-                    </Tooltip>
-                    <Stack direction="row" spacing={1}>
+                    <Tooltip title="Supported image formats"><InfoIcon fontSize="small" color="action" /></Tooltip>
+                    <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                       {Object.entries(FILE_TYPE_LABELS)
                         .filter(([ext, label]) => label.includes('Image'))
                         .map(([ext, label]) => (
-                        <Chip 
-                          key={ext}
-                          label={label} 
-                          size="small" 
-                          variant="outlined"
-                          sx={{ fontSize: '0.75rem' }}
-                        />
+                        <Chip key={ext} label={label} size="small" variant="outlined" sx={{ fontSize: '0.75rem' }} />
                       ))}
                     </Stack>
-                    <Typography variant="caption" color="text.secondary">
-                      • Max 10MB
-                    </Typography>
+                    <Typography variant="caption" color="text.secondary">• Max 10MB</Typography>
                   </Box>
                 </Box>
               </Fade>
             )}
 
-            {/* YouTube Upload Section */}
             {uploadType === 'youtube' && (
               <Fade in timeout={300}>
                 <Box sx={{ mb: 4 }}>
@@ -639,16 +536,11 @@ const UploadPage = () => {
                     onChange={handleYoutubeLinkChange}
                     placeholder="https://www.youtube.com/watch?v=..."
                     InputProps={{
-                      startAdornment: (
-                        <YouTubeIcon sx={{ mr: 1, color: '#FF0000' }} />
-                      ),
+                      startAdornment: (<YouTubeIcon sx={{ mr: 1, color: '#FF0000' }} />),
                     }}
                     sx={{
                       '& .MuiOutlinedInput-root': {
-                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                          borderColor: 'primary.main',
-                          borderWidth: 2,
-                        },
+                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main', borderWidth: 2 },
                       },
                     }}
                   />
@@ -659,54 +551,55 @@ const UploadPage = () => {
               </Fade>
             )}
 
-            {/* Text Input Section */}
             {uploadType === 'text' && (
               <Fade in timeout={300}>
                 <Box sx={{ mb: 4 }}>
-                  {/* Title Input with AI Generation Button */}
-                  <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-                    <TextField
-                      fullWidth
-                      label="Content Title"
-                      variant="outlined"
-                      value={textTitle}
-                      onChange={handleTextTitleChange}
-                      placeholder="Enter a title for your content..."
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'primary.main',
-                            borderWidth: 2,
+                  {/* Adjusted layout for small screens */}
+                  <Grid container spacing={2} sx={{ mb: 3 }}>
+                    <Grid item xs={12} sm>
+                      <TextField
+                        fullWidth
+                        label="Content Title"
+                        variant="outlined"
+                        value={textTitle}
+                        onChange={handleTextTitleChange}
+                        placeholder="Enter a title for your content..."
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main', borderWidth: 2 },
                           },
-                        },
-                      }}
-                    />
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={generateContentWithAI}
-                      disabled={isGeneratingAI || !textTitle.trim()}
-                      startIcon={<AutoAwesomeIcon />}
-                      sx={{
-                        minWidth: '180px',
-                        background: 'linear-gradient(45deg, #8E2DE2, #4A00E0)',
-                        '&:hover': {
-                          background: 'linear-gradient(45deg, #7928CA, #3A0CA3)',
-                        },
-                      }}
-                    >
-                      {isGeneratingAI ? (
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <CircularProgress size={20} color="inherit" />
-                          <span>Generating...</span>
-                        </Box>
-                      ) : (
-                        'Weave'
-                      )}
-                    </Button>
-                  </Box>
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm="auto">
+                      <Button
+                        fullWidth // Button takes full width on extra-small screens
+                        variant="contained"
+                        color="primary"
+                        onClick={generateContentWithAI}
+                        disabled={isGeneratingAI || !textTitle.trim()}
+                        startIcon={<AutoAwesomeIcon />}
+                        sx={{
+                          minWidth: { sm: '180px' }, // Set min-width on small screens and up
+                          height: '100%', // Match text field height
+                          background: 'linear-gradient(45deg, #8E2DE2, #4A00E0)',
+                          '&:hover': {
+                            background: 'linear-gradient(45deg, #7928CA, #3A0CA3)',
+                          },
+                        }}
+                      >
+                        {isGeneratingAI ? (
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <CircularProgress size={20} color="inherit" />
+                            <span>Generating...</span>
+                          </Box>
+                        ) : (
+                          'Weave'
+                        )}
+                      </Button>
+                    </Grid>
+                  </Grid>
 
-                  {/* Text Content Input */}
                   <Box sx={{ position: 'relative' }}>
                     <TextField
                       fullWidth
@@ -716,7 +609,7 @@ const UploadPage = () => {
                       rows={10}
                       value={textContent}
                       onChange={handleTextContentChange}
-                      placeholder="Write your own content or generate it with AI based on the title..."
+                      placeholder="Write your own content or generate it with AI..."
                       InputProps={{
                         startAdornment: textContent ? null : (
                           <TextFieldsIcon sx={{ mr: 1, color: 'primary.main', alignSelf: 'flex-start', mt: 1 }} />
@@ -725,36 +618,19 @@ const UploadPage = () => {
                       sx={{
                         '& .MuiOutlinedInput-root': {
                           alignItems: 'flex-start',
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'primary.main',
-                            borderWidth: 2,
-                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main', borderWidth: 2 },
                         },
-                        '& .MuiInputBase-input': {
-                          pl: textContent ? 2 : 0,
-                        },
+                        '& .MuiInputBase-input': { pl: textContent ? 2 : 0 },
                       }}
                     />
-                    {textContent && (
-                      <Box 
-                        sx={{
-                          position: 'absolute',
-                          top: 10,
-                          right: 10,
-                          zIndex: 1,
-                          display: 'flex',
-                          gap: 1,
-                          backgroundColor: 'rgba(45, 45, 45, 0.8)',
-                          borderRadius: 1,
-                          padding: '4px',
-                        }}
-                      >
+                    { textContent && (
+                      <Box sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1, display: 'flex', gap: 1, backgroundColor: 'rgba(45, 45, 45, 0.8)', borderRadius: 1, padding: '4px' }}>
                         <Tooltip title="Regenerate Content">
-                          <IconButton 
-                            size="small" 
-                            color="secondary" 
+                          <IconButton
+                            size="small"
+                            color="secondary"
                             onClick={generateContentWithAI}
-                            disabled={isGeneratingAI || !textTitle.trim()}
+                            disabled={isGeneratingAI || !textTitle.trim() || /\s/.test(textTitle)} // checks for empty or spaces
                           >
                             <RefreshIcon fontSize="small" />
                           </IconButton>
@@ -763,22 +639,15 @@ const UploadPage = () => {
                     )}
                   </Box>
 
-                  {/* Word Count and Requirements */}
-                  <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Tooltip title="Minimum words required for generating quality quiz questions">
-                        <InfoIcon fontSize="small" color="action" />
-                      </Tooltip>
+                  <Box sx={{ mt: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, textAlign: { xs: 'center', sm: 'left' } }}>
+                      <Tooltip title="Minimum words required for quality quiz questions"><InfoIcon fontSize="small" color="action" /></Tooltip>
                       <Typography variant="caption" color="text.secondary">
                         Minimum {MIN_WORDS} words required for quality quiz generation
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography 
-                        variant="body2" 
-                        color={wordCount >= MIN_WORDS ? 'success.main' : wordCount > 0 ? 'warning.main' : 'text.secondary'}
-                        sx={{ fontWeight: 500 }}
-                      >
+                      <Typography variant="body2" color={wordCount >= MIN_WORDS ? 'success.main' : wordCount > 0 ? 'warning.main' : 'text.secondary'} sx={{ fontWeight: 500 }}>
                         {wordCount} words
                       </Typography>
                       {wordCount >= MIN_WORDS && (
@@ -790,37 +659,17 @@ const UploadPage = () => {
               </Fade>
             )}
             
-            {/* Messages */}
             <Box sx={{ mb: 3 }}>
-              {error && (
-                <Fade in>
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    {error}
-                  </Alert>
-                </Fade>
-              )}
-              {success && (
-                <Fade in>
-                  <Alert severity="success" sx={{ mb: 2 }}>
-                    {success}
-                  </Alert>
-                </Fade>
-              )}
+              {error && (<Fade in><Alert severity="error" sx={{ mb: 2 }}>{error}</Alert></Fade>)}
+              {success && (<Fade in><Alert severity="success" sx={{ mb: 2 }}>{success}</Alert></Fade>)}
             </Box>
 
-            {/* Submit Button */}
             <Box sx={{ textAlign: 'center' }}>
               <Button
                 type="submit"
                 variant="contained"
                 color="primary"
-                disabled={
-                  isLoading || 
-                  (!file && uploadType === 'file') || 
-                  (!youtubeLink.trim() && uploadType === 'youtube') ||
-                  (!isTextValid && uploadType === 'text') ||
-                  ((!file || !imageName.trim()) && uploadType === 'image')
-                }
+                disabled={ isLoading || (!file && uploadType === 'file') || (!youtubeLink.trim() && uploadType === 'youtube') || (!isTextValid && uploadType === 'text') || ((!file || !imageName.trim()) && uploadType === 'image')}
                 size="large"
                 sx={{ 
                   minWidth: 200,

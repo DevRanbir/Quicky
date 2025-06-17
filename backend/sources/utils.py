@@ -2,6 +2,12 @@ import PyPDF2
 import docx
 from pptx import Presentation
 from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api import (
+    NoTranscriptFound,
+    TranscriptsDisabled,
+    NoTranscriptAvailable,
+)
+
 import re
 
 def extract_text_from_pdf(file_path):
@@ -143,42 +149,73 @@ def extract_youtube_id(youtube_url):
     return match.group(1) if match else None
 
 def extract_youtube_transcript(video_id):
+    """Extracts YouTube video transcript, preferring English or translating if necessary."""
+    print(f"Attempting to extract transcript for video ID: {video_id}")
+    
+    # Initialize with default values
+    title = ""
+    channel = ""
+    duration = ""
+    thumbnail = ""
+    transcript_list = [] # Initialize transcript_list here
+    
     try:
         # First try to get English transcript
         try:
             transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
-        except:
+        except (NoTranscriptFound, TranscriptsDisabled, NoTranscriptAvailable) as e:
+            print(f"English transcript not found or disabled for {video_id}: {e}")
             # If English not available, try to get any available transcript and translate to English
-            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-            available_transcript = transcript_list.find_generated_transcript(['hi', 'en'])
-            if available_transcript:
-                transcript_list = available_transcript.translate('en').fetch()
-            else:
-                # If no translatable transcript found, try to get any available transcript
-                available_transcripts = transcript_list.find_manually_created_transcript()
-                if available_transcripts:
-                    transcript_list = available_transcripts.translate('en').fetch()
+            try:
+                all_transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
+                available_transcript = None
+                
+                # Try to find a generated transcript
+                try:
+                    available_transcript = all_transcripts.find_generated_transcript(['en', 'hi'])
+                except NoTranscriptFound:
+                    print(f"No generated transcript found for {video_id}.")
+                
+                # If no generated transcript, try manually created ones
+                if not available_transcript:
+                    try:
+                        available_transcript = all_transcripts.find_manually_created_transcript(['en'])
+                    except NoTranscriptFound:
+                        print(f"No manually created transcript found for {video_id}.")
+                
+                # If we found a transcript, fetch and translate it if needed
+                if available_transcript:
+                    if available_transcript.language_code != 'en':
+                        transcript_list = available_transcript.translate('en').fetch()
+                    else:
+                        transcript_list = available_transcript.fetch()
                 else:
-                    raise Exception("No suitable transcript found")
+                    # Last resort: try to get any transcript and translate
+                    try:
+                        # Get the first available transcript, regardless of language
+                        first_transcript = next(iter(all_transcripts), None)
+                        if first_transcript:
+                            transcript_list = first_transcript.translate('en').fetch()
+                        else:
+                            print(f"No transcripts available at all for {video_id}.")
+                            transcript_list = [] # Ensure it's empty if nothing found
+                    except Exception as e3:
+                        print(f"Failed to get any transcript for {video_id}: {e3}")
+                        transcript_list = [] # Ensure it's empty on error
+            except Exception as outer_e:
+                print(f"Failed to list or process transcripts for {video_id}: {outer_e}")
+                transcript_list = [] # Ensure it's empty on error
         
+        # Process the transcript
+        if not transcript_list:
+            print(f"No transcript items found for video_id: {video_id}")
+            return None
+
         text = " "
         for item in transcript_list:
             text += item['text'] + " "
         
-        return text, None # text, duration
+        return text.strip()
     except Exception as e:
-        print(f"Error extracting YouTube transcript: {e}")
-        return None, None
-    try:
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
-        text = " "
-        for item in transcript_list:
-            text += item['text'] + " "
-        
-        # Attempt to get video duration (this part might need a more robust library like google-api-python-client for full video details)
-        # For simplicity, we'll just return the transcript for now.
-        # duration = "N/A" # Placeholder
-        return text, None # text, duration
-    except Exception as e:
-        print(f"Error extracting YouTube transcript: {e}")
+        print(f"Error extracting YouTube transcript for {video_id}: {e}")
         return None, None

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback} from 'react';
 import axios from 'axios'; // Assuming you'll replace mock with actual axios
 import {
   Container,
@@ -51,6 +51,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
+import ReplayIcon from '@mui/icons-material/Replay';
 
 // Mock axios for demo if not using real backend
 // const axios = { /* ... mock implementation ... */ };
@@ -117,8 +118,72 @@ const SavedFilesPage = () => {
   const [totalQuestionLimit, setTotalQuestionLimit] = useState(20);
   const [timeRange, setTimeRange] = useState('');
 
+  // --- MODIFIED LOGIC ---
+  // State to track successful quiz generations (original logic)
+  const [quizGeneratedSources, setQuizGeneratedSources] = useState(() => {
+    try {
+      const stored = localStorage.getItem('quizGeneratedSources');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch (e) {
+      console.error("Failed to load quizGeneratedSources from localStorage", e);
+      return new Set();
+    }
+  });
+
+  // --- NEW LOGIC ---
+  // State to track if a quiz has been ATTEMPTED
+  const [quizAttemptedSources, setQuizAttemptedSources] = useState(() => {
+    try {
+      const stored = localStorage.getItem('quizAttemptedSources');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch (e) {
+      console.error("Failed to load quizAttemptedSources from localStorage", e);
+      return new Set();
+    }
+  });
+
+  const [savedQuizConfigs, setSavedQuizConfigs] = useState(() => {
+    try {
+      const stored = localStorage.getItem('savedQuizConfigs');
+      return stored ? JSON.parse(stored) : {};
+    } catch (e) {
+      console.error("Failed to load savedQuizConfigs from localStorage", e);
+      return {};
+    }
+  });
+
+  // Effect for saving successfully generated quizzes
+  useEffect(() => {
+    try {
+      localStorage.setItem('quizGeneratedSources', JSON.stringify(Array.from(quizGeneratedSources)));
+    } catch (e) {
+      console.error("Failed to save quizGeneratedSources to localStorage", e);
+    }
+  }, [quizGeneratedSources]);
+
+  // --- NEW LOGIC ---
+  // Effect for saving attempted quizzes
+  useEffect(() => {
+    try {
+      localStorage.setItem('quizAttemptedSources', JSON.stringify(Array.from(quizAttemptedSources)));
+    } catch (e) {
+      console.error("Failed to save quizAttemptedSources to localStorage", e);
+    }
+  }, [quizAttemptedSources]);
+
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('savedQuizConfigs', JSON.stringify(savedQuizConfigs));
+    } catch (e) {
+      console.error("Failed to save savedQuizConfigs to localStorage", e);
+    }
+  }, [savedQuizConfigs]);
+
+
   const navigate = useNavigate();
   const availableFileTypes = useMemo(() => ['PDF', 'DOCX', 'PPTX', 'TXT', 'YOUTUBE'], []);
+
 
   const getSourceDisplayName = useCallback((source) => {
     if (!source) return 'Unknown Source'; // Early exit if source is null/undefined
@@ -400,8 +465,6 @@ const SavedFilesPage = () => {
 
   const handleDeleteConfirm = async () => {
     if (!sourceToDelete) return;
-    // Temporarily set loading for delete button, not global setIsLoading
-    // Consider adding a specific loading state for delete if needed.
     try {
       await axios.delete(`/sources/${sourceToDelete.id}/delete_file/`);
       setSources(prevSources => prevSources.filter(s => s.id !== sourceToDelete.id));
@@ -410,6 +473,17 @@ const SavedFilesPage = () => {
         newCache.delete(sourceToDelete.id);
         newCache.delete(`${sourceToDelete.id}_full`);
         return newCache;
+      });
+      // Also remove from attempted/generated lists
+      setQuizAttemptedSources(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(sourceToDelete.id);
+          return newSet;
+      });
+      setQuizGeneratedSources(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(sourceToDelete.id);
+          return newSet;
       });
       setDeleteConfirmOpen(false);
       setSourceToDelete(null);
@@ -421,42 +495,83 @@ const SavedFilesPage = () => {
 
   const handleConfigureQuiz = (source) => {
     setSelectedSource(source);
-    setPagesToGenerate(source.source_type === 'PDF' && source.page_count ? `1-${source.page_count}` : '');
-    setQuestionsPerPage('5');
-    setTotalQuestionLimit(source.source_type === 'PDF' && source.page_count ? Math.min(1000, source.page_count * 5) : 100);
-    setTimeRange('');
+  
+    const savedConfig = savedQuizConfigs[source.id];
+    if (savedConfig) {
+      setPagesToGenerate(savedConfig.pagesToGenerate || (source.source_type === 'PDF' && source.page_count ? `1-${source.page_count}` : ''));
+      setQuestionsPerPage(savedConfig.questionsPerPage || '5');
+      setTotalQuestionLimit(savedConfig.totalQuestionLimit || (source.source_type === 'PDF' && source.page_count ? Math.min(1000, source.page_count * 5) : 100));
+      setTimeRange(savedConfig.timeRange || '');
+    } else {
+      setPagesToGenerate(source.source_type === 'PDF' && source.page_count ? `1-${source.page_count}` : '');
+      setQuestionsPerPage('5');
+      setTotalQuestionLimit(source.source_type === 'PDF' && source.page_count ? Math.min(1000, source.page_count * 5) : 100);
+      setTimeRange('');
+    }
+  
     setConfigOpen(true);
-    fetchFullPreview(source); 
+    fetchFullPreview(source);
   };
+  
 
   const handleStartQuiz = async () => {
     if (!selectedSource) return;
-    setIsQuizGenerating(true); // Set loading state
-    setError(''); // Clear previous errors
+
+    // --- NEW LOGIC ---
+    // Immediately mark the quiz as "attempted" when the user clicks "Start Quiz"
+    setQuizAttemptedSources(prev => new Set(prev).add(selectedSource.id));
+
+    setIsQuizGenerating(true);
+    setError('');
+  
     try {
       const payload = {
         pages_to_generate: selectedSource.source_type === 'PDF' ? pagesToGenerate : null,
-        time_range: selectedSource.source_type === 'YOUTUBE' ? timeRange : null, 
+        time_range: selectedSource.source_type === 'YOUTUBE' ? timeRange : null,
         questions_per_page: parseInt(questionsPerPage, 10),
         total_question_limit: totalQuestionLimit,
       };
+  
       await axios.post(`/sources/${selectedSource.id}/generate_questions/`, payload);
+  
+      // --- ORIGINAL LOGIC (kept for tracking successful generations) ---
+      // Mark this source ID as having a quiz successfully generated
+      setQuizGeneratedSources(prev => new Set(prev).add(selectedSource.id));
+
+      // Save quiz configuration
+      setSavedQuizConfigs(prev => ({
+        ...prev,
+        [selectedSource.id]: {
+          pagesToGenerate,
+          questionsPerPage,
+          totalQuestionLimit,
+          timeRange,
+        },
+      }));
+  
       navigate(`/questions/${selectedSource.id}`, {
-        state: { sourceTitle: getSourceDisplayName(selectedSource), pageCount: selectedSource.page_count }
+        state: {
+          sourceTitle: getSourceDisplayName(selectedSource),
+          pageCount: selectedSource.page_count,
+        }
       });
       setConfigOpen(false);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to generate quiz. Please check configuration.');
       console.error('Quiz generation error:', err);
     } finally {
-      setIsQuizGenerating(false); // Reset loading state
+      setIsQuizGenerating(false);
     }
   };
+  
 
   const handleCancelQuizGeneration = () => {
     setConfigOpen(false);
-    setIsQuizGenerating(false); // Also reset loading state if cancel is pressed during loading
+    setIsQuizGenerating(false);
   };
+
+
+  
 
   if (isLoading && sources.length === 0) {
     return (
@@ -482,7 +597,7 @@ const SavedFilesPage = () => {
         </Typography>
       </Box>
 
-      {error && <Fade in><Alert severity="error" sx={{ mb: 3 }}>{error}</Alert></Fade>}
+      {error && <Fade in><Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>{error}</Alert></Fade>}
 
       {/* Search and Filters Panel */} 
       {sources.length > 0 && (
@@ -618,21 +733,90 @@ const SavedFilesPage = () => {
                     </Stack>
                     <Box sx={{ marginTop: 'auto' }}> {/* Pushes buttons to bottom */} 
                       <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center">
+                        
+                        {/* Preview Button */}
                         <Tooltip title="Preview Content">
-                          <IconButton onClick={() => handlePreviewClick(source)} sx={{ backgroundColor: 'rgba(255, 107, 53, 0.1)', '&:hover': { backgroundColor: 'rgba(255, 107, 53, 0.2)', transform: 'scale(1.1)' }, transition: 'all 0.2s ease' }}>
+                          <IconButton
+                            onClick={() => handlePreviewClick(source)}
+                            sx={{
+                              backgroundColor: 'rgba(255, 107, 53, 0.1)',
+                              '&:hover': {
+                                backgroundColor: 'rgba(255, 107, 53, 0.2)',
+                                transform: 'scale(1.1)',
+                              },
+                              transition: 'all 0.2s ease',
+                            }}
+                          >
                             <VisibilityIcon />
                           </IconButton>
                         </Tooltip>
-                        <Button variant="contained" startIcon={<QuizIcon />} onClick={() => handleConfigureQuiz(source)} sx={{ flexGrow: 1, mx: 1, background: 'linear-gradient(45deg, #FF6B35, #FF8A65)', '&:hover': { background: 'linear-gradient(45deg, #E64A19, #FF6B35)', transform: 'translateY(-2px)' }, transition: 'all 0.2s ease' }}>
+
+                        {/* Create Quiz Button */}
+                        <Button
+                          variant="contained"
+                          startIcon={<QuizIcon />}
+                          onClick={() => handleConfigureQuiz(source)}
+                          sx={{
+                            flexGrow: 1,
+                            mx: 1,
+                            background: 'linear-gradient(45deg, #FF6B35, #FF8A65)',
+                            '&:hover': {
+                              background: 'linear-gradient(45deg, #E64A19, #FF6B35)',
+                              transform: 'translateY(-2px)',
+                            },
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
                           Create Quiz
                         </Button>
+
+                        {/* --- MODIFIED LOGIC --- */}
+                        {/* Retry Button now checks for ATTEMPTED quizzes */}
+                        {quizAttemptedSources.has(source.id) && (
+                          <Tooltip title="Retry Last Quiz">
+                            <IconButton
+                              onClick={() => {
+                                navigate(`/questions/${source.id}`, {
+                                  state: {
+                                    sourceTitle: getSourceDisplayName(source),
+                                    pageCount: source.page_count
+                                  }
+                                });
+                              }}
+                              sx={{
+                                backgroundColor: 'rgba(255, 107, 53, 0.1)',
+                                '&:hover': {
+                                  backgroundColor: 'rgba(255, 107, 53, 0.2)',
+                                  transform: 'scale(1.1)',
+                                },
+                                transition: 'all 0.2s ease',
+                              }}
+                            >
+                              <ReplayIcon />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+
+                        {/* Delete Button */}
                         <Tooltip title="Delete">
-                          <IconButton onClick={() => handleDeleteClick(source)} sx={{ backgroundColor: 'rgba(244, 67, 54, 0.1)', '&:hover': { backgroundColor: 'rgba(244, 67, 54, 0.2)', transform: 'scale(1.1)' }, transition: 'all 0.2s ease' }}>
+                          <IconButton
+                            onClick={() => handleDeleteClick(source)}
+                            sx={{
+                              backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                              '&:hover': {
+                                backgroundColor: 'rgba(244, 67, 54, 0.2)',
+                                transform: 'scale(1.1)',
+                              },
+                              transition: 'all 0.2s ease',
+                            }}
+                          >
                             <DeleteIcon />
                           </IconButton>
                         </Tooltip>
+                        
                       </Stack>
                     </Box>
+
                   </CardContent>
                 </Card>
               </Zoom>
@@ -668,69 +852,68 @@ const SavedFilesPage = () => {
               autoplay
               style={{ width: '150px', height: '150px' }}
             />
-            <Typography sx={{ mt: 2 }}>Generating your quiz, please wait...</Typography>
+            <Typography sx={{ mt: 2 }}>With more Questions, comes more waiting......</Typography>
           </DialogContent>
         ) : (
-          <DialogContent>
+          <>
+            <DialogContent>
 
-            {selectedSource?.source_type === 'PDF' && (
-              <>
+              {selectedSource?.source_type === 'PDF' && (
+                <>
+                  <TextField
+                    fullWidth
+                    label="Pages to Generate From"
+                    value={pagesToGenerate}
+                    onChange={(e) => setPagesToGenerate(e.target.value)}
+                    helperText={`E.g., 1,2,3 or 1-5 (Max: ${selectedSource?.page_count || 'N/A'})`}
+                    sx={{ mb: 3,mt:1 }}
+                  />
+                  <TextField
+                    fullWidth
+                    label="Questions per Page/Section"
+                    type="number"
+                    value={questionsPerPage}
+                    onChange={(e) => setQuestionsPerPage(e.target.value)}
+                    InputProps={{ inputProps: { min: 1, max: 20 } }}
+                    sx={{ mb: 3 }}
+                  />
+                </>
+              )}
+
+              {selectedSource?.source_type === 'YOUTUBE' && (
                 <TextField
                   fullWidth
-                  label="Pages to Generate From"
-                  value={pagesToGenerate}
-                  onChange={(e) => setPagesToGenerate(e.target.value)}
-                  helperText={`E.g., 1,2,3 or 1-5 (Max: ${selectedSource?.page_count || 'N/A'})`}
-                  sx={{ mb: 3,mt:1 }}
+                  label="Time Ranges (optional)"
+                  value={timeRange}
+                  onChange={(e) => setTimeRange(e.target.value)}
+                  helperText="E.g., 0:00-5:30, 10:15-15:45"
+                  sx={{ mb: 3, mt:1 }}
                 />
-                <TextField
-                  fullWidth
-                  label="Questions per Page/Section"
-                  type="number"
-                  value={questionsPerPage}
-                  onChange={(e) => setQuestionsPerPage(e.target.value)}
-                  InputProps={{ inputProps: { min: 1, max: 20 } }}
-                  sx={{ mb: 3 }}
-                />
-              </>
-            )}
+              )}
 
-            {selectedSource?.source_type === 'YOUTUBE' && (
-              <TextField
-                fullWidth
-                label="Time Ranges (optional)"
-                value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value)}
-                helperText="E.g., 0:00-5:30, 10:15-15:45"
-                sx={{ mb: 3, mt:1 }}
-              />
-            )}
+              {/* Show slider for all types EXCEPT PDFs */}
+              {selectedSource?.source_type !== 'PDF' && (
+                <>
+                  <Typography gutterBottom>Total Question Limit (max 100)</Typography>
+                  <Slider
+                    value={totalQuestionLimit}
+                    onChange={(e, newValue) => setTotalQuestionLimit(newValue)}
+                    min={5}
+                    max={100}
+                    step={5}
+                    marks
+                    valueLabelDisplay="auto"
+                  />
+                </>
+              )}
 
-            {/* Show slider for all types EXCEPT PDFs */}
-            {selectedSource?.source_type !== 'PDF' && (
-              <>
-                <Typography gutterBottom>Total Question Limit (max 100)</Typography>
-                <Slider
-                  value={totalQuestionLimit}
-                  onChange={(e, newValue) => setTotalQuestionLimit(newValue)}
-                  min={5}
-                  max={100}
-                  step={5}
-                  marks
-                  valueLabelDisplay="auto"
-                />
-              </>
-            )}
-
-        </DialogContent>
-
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleCancelQuizGeneration}>Cancel</Button>
+              <Button onClick={handleStartQuiz} variant="contained">Start Quiz</Button>
+            </DialogActions>
+          </>
         )}
-        <DialogActions>
-          <Button onClick={handleCancelQuizGeneration}>Cancel</Button>
-          {!isQuizGenerating && (
-            <Button onClick={handleStartQuiz} variant="contained">Start Quiz</Button>
-          )}
-        </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}

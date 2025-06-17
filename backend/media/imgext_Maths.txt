@@ -1,0 +1,11 @@
+Complex Number
+Formulas
+e Complex Numbers
+* Algebra of Complex Numbers
+* Modulus and Conjugate
+* Multiplicative Inverse
+e Polar Form & Argument
+* |dentities
+e Euler formula
+* De Moivre's theorem
+e Cube Root of Unity

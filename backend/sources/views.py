@@ -104,20 +104,35 @@ class SourceViewSet(viewsets.ModelViewSet):
             if not video_id:
                 return Response({"error": "Invalid YouTube URL or could not extract video ID."}, status=status.HTTP_400_BAD_REQUEST)
             
-            text_content, video_duration = extract_youtube_transcript(video_id)
+            video_duration = None
+            try:
+                ydl_opts = {
+                    'quiet': True,
+                    'skip_download': True,
+                    'force_generic_extractor': True, # To prevent errors with specific extractors
+                }
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info_dict = ydl.extract_info(youtube_link, download=False)
+                    duration_seconds = info_dict.get('duration')
+                    if duration_seconds:
+                        minutes, seconds = divmod(duration_seconds, 60)
+                        video_duration = f"{int(minutes)}:{int(seconds):02d}"
+            except Exception as e:
+                print(f"Error getting video info with yt-dlp: {e}")
+                # Continue without duration if yt-dlp fails
+
+            text_content = extract_youtube_transcript(video_id)
             
-            if text_content:
-                # Wrap the YouTube transcript in a list to match JSONField structure
-                processed_text_content = [text_content] 
-                source = Source.objects.create(
-                    source_type='YOUTUBE',
-                    youtube_link=youtube_link,
-                    text_content=processed_text_content,
-                    video_duration=video_duration
-                )
-                return Response(SourceSerializer(source, context={'request': request}).data, status=status.HTTP_201_CREATED)
-            else:
-                return Response({"error": "Failed to extract transcript from YouTube video."}, status=status.HTTP_400_BAD_REQUEST)
+            # If text_content is None, set it to an empty list to indicate no transcript
+            processed_text_content = [text_content] if text_content else []
+
+            source = Source.objects.create(
+                source_type='YOUTUBE',
+                youtube_link=youtube_link,
+                text_content=processed_text_content,
+                video_duration=video_duration
+            )
+            return Response(SourceSerializer(source, context={'request': request}).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['get'])
@@ -495,7 +510,15 @@ def generate_youtube_preview(source):
         # Use text_content from database if available (much faster)
         transcript_text = ""
         if source.text_content and isinstance(source.text_content, list) and len(source.text_content) > 0:
-            transcript_text = source.text_content[0][:150000]  # Limit for preview
+            content_item = source.text_content[0]
+            if content_item is None:
+                transcript_text = "" # Treat None as empty string
+            elif isinstance(content_item, list):
+                # If it's a list of strings, join them
+                transcript_text = " ".join(content_item)[:150000]
+            elif isinstance(content_item, str):
+                # If it's already a string, use it directly
+                transcript_text = content_item[:150000]
             
         # Get basic video information using yt-dlp (lightweight extraction)
         try:

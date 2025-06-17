@@ -11,6 +11,10 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
+  useMediaQuery,
+  useTheme,
+  Menu,
+  MenuItem,
 } from '@mui/material';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
@@ -20,9 +24,9 @@ import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 
 import { Link as RouterLink, useLocation } from 'react-router-dom';
-import { ReactComponent as LogoIcon } from './icon.svg'; 
+import { ReactComponent as LogoIcon } from './icon.svg';
 import axios from 'axios';
-import { CloudDone as CloudDoneIcon, CloudOff as CloudOffIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { CloudDone as CloudDoneIcon, CloudOff as CloudOffIcon } from '@mui/icons-material';
 
 const Navbar = () => {
   const location = useLocation();
@@ -30,6 +34,9 @@ const Navbar = () => {
     disableHysteresis: true,
     threshold: 0,
   });
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Add state for backend status
   const [backendStatus, setBackendStatus] = useState('checking'); // 'online', 'offline', 'checking'
@@ -40,23 +47,23 @@ const Navbar = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
+  const [showDevRanbir, setShowDevRanbir] = useState(false); // State for "by DevRanbir" animation
+  const [anchorEl, setAnchorEl] = useState(null); // State for dropdown anchor element
+  const open = Boolean(anchorEl);
 
   const toggleSound = () => {
     setSoundOn((prev) => {
       const newState = !prev;
-  
-      // Mute or unmute all <audio> and <video> elements
+
       const mediaElements = document.querySelectorAll('audio, video');
       mediaElements.forEach((el) => {
         el.muted = !newState;
       });
-  
+
       return newState;
     });
   };
-  
-  
-  // Fullscreen toggle handler
+
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen();
@@ -74,19 +81,15 @@ const Navbar = () => {
       </Button>
     </Tooltip>
   );
-  
 
-  // Theme toggle handler
   const toggleTheme = () => {
     setDarkMode((prev) => !prev);
-    // If using MUI theme provider, call context or state update here instead
   };
 
   const isActiveRoute = (path) => {
     return location.pathname === path;
   };
 
-  // Common button style
   const commonButtonSx = {
     minWidth: '40px',
     width: '40px',
@@ -100,7 +103,6 @@ const Navbar = () => {
     },
   };
 
-  // Fullscreen button
   const renderFullscreenToggleButton = () => (
     <Tooltip title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}>
       <Button onClick={toggleFullscreen} sx={commonButtonSx}>
@@ -109,7 +111,6 @@ const Navbar = () => {
     </Tooltip>
   );
 
-  // Theme toggle button
   const renderThemeToggleButton = () => (
     <Tooltip title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
       <Button onClick={toggleTheme} sx={commonButtonSx}>
@@ -118,11 +119,9 @@ const Navbar = () => {
     </Tooltip>
   );
 
-  // Function to check backend status
   const checkBackendStatus = async () => {
     setBackendStatus('checking');
     try {
-      // Use a simple endpoint that should respond quickly
       const response = await axios.get('/wakeUP/test/', { timeout: 5000 });
       if (response.status === 200) {
         setBackendStatus('online');
@@ -138,15 +137,13 @@ const Navbar = () => {
     }
   };
 
-  // Function to wake up the backend
   const wakeUpBackend = async () => {
     setIsWakingUp(true);
     setSnackbarMessage('Attempting to wake up the backend...');
     setSnackbarSeverity('info');
     setSnackbarOpen(true);
-    
+
     try {
-      // Send a request to wake up the backend
       const response = await axios.get('/wakeUP/test/', { timeout: 15000 });
       if (response.status === 200) {
         setSnackbarMessage('Backend is now online!');
@@ -166,19 +163,16 @@ const Navbar = () => {
     }
   };
 
-  // Check backend status on component mount and periodically
   useEffect(() => {
     checkBackendStatus();
-    
-    // Check status every 5 minutes
+
     const intervalId = setInterval(() => {
       checkBackendStatus();
     }, 5 * 60 * 1000);
-    
+
     return () => clearInterval(intervalId);
   }, []);
 
-  // Handle snackbar close
   const handleSnackbarClose = (event, reason) => {
     if (reason === 'clickaway') {
       return;
@@ -186,7 +180,31 @@ const Navbar = () => {
     setSnackbarOpen(false);
   };
 
-  // Render backend status button based on status
+  const handleQuickyQuizyClick = () => {
+    if (isMobile) {
+      setShowDevRanbir(true);
+      const timer = setTimeout(() => {
+        setShowDevRanbir(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  };
+
+  // Dropdown menu handlers
+  const handleMenuClick = (event) => {
+    if (isMobile) {
+      setAnchorEl(event.currentTarget);
+    }
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleMenuItemClick = () => {
+    handleMenuClose(); // Close menu after click
+  };
+
   const renderBackendStatusButton = () => {
     if (backendStatus === 'checking') {
       return (
@@ -256,9 +274,9 @@ const Navbar = () => {
   };
 
   return (
-    <AppBar 
-      position="fixed" 
-      sx={{ 
+    <AppBar
+      position="fixed"
+      sx={{
         zIndex: (theme) => theme.zIndex.drawer + 1,
         backgroundColor: trigger ? 'rgba(26, 26, 26, 0.95)' : 'rgba(26, 26, 26, 0.9)',
         backdropFilter: 'blur(20px)',
@@ -267,50 +285,104 @@ const Navbar = () => {
       }}
     >
       <Toolbar sx={{ px: { xs: 2, sm: 3 } }}>
-      <IconButton
-        edge="start"
-        color="inherit"
-        aria-label="logo"
-        component={RouterLink}
-        to="/"
-        sx={{ 
-          mr: 0.5,
-          p: 1.5,
-          borderRadius: 2,
-          transition: 'all 0.2s ease-in-out',
-          color: '#FF6B35',
-          '&:hover': {
-            backgroundColor: 'rgba(255, 107, 53, 0.1)',
-            transform: 'scale(1.05)',
-          }
-        }}
-      >
-        <LogoIcon style={{ height: 28, width: 28 , color: '#FF6B35' }} />
-      </IconButton>
+        <IconButton
+          edge="start"
+          color="inherit"
+          aria-label="logo"
+          // Conditionally apply component and to props based on isMobile
+          {...(!isMobile && { component: RouterLink, to: "/" })}
+          onClick={isMobile ? handleMenuClick : null} // Only use onClick for menu on mobile
+          sx={{
+            mr: 0.5,
+            p: 1.5,
+            borderRadius: 2,
+            transition: 'all 0.2s ease-in-out',
+            color: '#FF6B35',
+            '&:hover': {
+              backgroundColor: 'rgba(255, 107, 53, 0.1)',
+              transform: 'scale(1.05)',
+            }
+          }}
+        >
+          <LogoIcon style={{ height: 28, width: 28, color: '#FF6B35' }} />
+        </IconButton>
 
-      <Typography 
-        variant="h5" 
-        component="div" 
-        sx={{ 
-          flexGrow: 1,
-          fontWeight: 600,
-          background: 'linear-gradient(135deg, #FF6B35 0%, #FF8A65 100%)',
-          backgroundClip: 'text',
-          textFillColor: 'transparent',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-        }}
-      >
-        Quicky Quizy{' '}
-        <Box component="span" sx={{ fontSize: '0.65em', fontWeight: 400 , py: 0.5}}>
-          by DevRanbir
-        </Box>
-      </Typography>
+        {/* Dropdown Menu for Mobile */}
+        {isMobile && (
+          <Menu
+            id="mobile-nav-menu"
+            anchorEl={anchorEl}
+            open={open}
+            onClose={handleMenuClose}
+            MenuListProps={{
+              'aria-labelledby': 'mobile-logo-button',
+            }}
+            sx={{
+              '& .MuiPaper-root': {
+                backgroundColor: 'rgba(26, 26, 26, 0.95)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(64, 64, 64, 0.3)',
+                mt: 1,
+              },
+              '& .MuiMenuItem-root': {
+                color: 'rgba(255, 255, 255, 0.9)',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 107, 53, 0.1)',
+                  color: '#FF6B35',
+                },
+              },
+            }}
+          >
+            <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/">Home</MenuItem>
+            <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/upload">Upload Content</MenuItem>
+            <MenuItem onClick={handleMenuItemClick} component={RouterLink} to="/saved-files">Saved Files</MenuItem>
+          </Menu>
+        )}
 
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          <Button 
-            color="inherit" 
-            component={RouterLink} 
+        <Typography
+          variant="h5"
+          component="div"
+          onClick={handleQuickyQuizyClick}
+          sx={{
+            flexGrow: 1,
+            fontWeight: 600,
+            background: 'linear-gradient(135deg, #FF6B35 0%, #FF8A65 100%)',
+            backgroundClip: 'text',
+            textFillColor: 'transparent',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            cursor: isMobile ? 'pointer' : 'default',
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Quicky Quizy{' '}
+          <Box
+            component="span"
+            sx={{
+              fontSize: '0.65em',
+              fontWeight: 400,
+              py: 0.5,
+              display: { xs: 'block', sm: 'inline' },
+              height: { xs: showDevRanbir ? 'auto' : 0, sm: 'auto' },
+              opacity: { xs: showDevRanbir ? 1 : 0, sm: 1 },
+              transform: { xs: showDevRanbir ? 'translateY(0)' : 'translateY(100%)', sm: 'translateY(0)' },
+              transition: 'height 0.3s ease-in-out, opacity 0.3s ease-in-out, transform 0.3s ease-in-out',
+              position: { xs: 'absolute', sm: 'static' },
+              left: { xs: '68px', sm: 'auto' },
+              top: { xs: '38px', sm: 'auto' },
+              width: { xs: 'fit-content', sm: 'auto' },
+              visibility: { xs: showDevRanbir ? 'visible' : 'hidden', sm: 'visible' },
+            }}
+          >
+            by DevRanbir
+          </Box>
+        </Typography>
+
+        <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 1, alignItems: 'center' }}>
+          <Button
+            color="inherit"
+            component={RouterLink}
             to="/"
             sx={{
               px: 3,
@@ -319,8 +391,8 @@ const Navbar = () => {
               fontWeight: 500,
               position: 'relative',
               color: isActiveRoute('/') ? '#FF6B35' : 'rgba(255, 255, 255, 0.9)',
-              backgroundColor: isActiveRoute('/') 
-                ? 'rgba(255, 107, 53, 0.1)' 
+              backgroundColor: isActiveRoute('/')
+                ? 'rgba(255, 107, 53, 0.1)'
                 : 'transparent',
               transition: 'all 0.2s ease-in-out',
               '&:hover': {
@@ -344,9 +416,9 @@ const Navbar = () => {
             Home
           </Button>
 
-          <Button 
-            color="inherit" 
-            component={RouterLink} 
+          <Button
+            color="inherit"
+            component={RouterLink}
             to="/upload"
             sx={{
               px: 3,
@@ -355,8 +427,8 @@ const Navbar = () => {
               fontWeight: 500,
               position: 'relative',
               color: isActiveRoute('/upload') ? '#FF6B35' : 'rgba(255, 255, 255, 0.9)',
-              backgroundColor: isActiveRoute('/upload') 
-                ? 'rgba(255, 107, 53, 0.1)' 
+              backgroundColor: isActiveRoute('/upload')
+                ? 'rgba(255, 107, 53, 0.1)'
                 : 'transparent',
               transition: 'all 0.2s ease-in-out',
               '&:hover': {
@@ -380,9 +452,9 @@ const Navbar = () => {
             Upload Content
           </Button>
 
-          <Button 
-            color="inherit" 
-            component={RouterLink} 
+          <Button
+            color="inherit"
+            component={RouterLink}
             to="/saved-files"
             sx={{
               px: 3,
@@ -391,8 +463,8 @@ const Navbar = () => {
               fontWeight: 500,
               position: 'relative',
               color: isActiveRoute('/saved-files') ? '#FF6B35' : 'rgba(255, 255, 255, 0.9)',
-              backgroundColor: isActiveRoute('/saved-files') 
-                ? 'rgba(255, 107, 53, 0.1)' 
+              backgroundColor: isActiveRoute('/saved-files')
+                ? 'rgba(255, 107, 53, 0.1)'
                 : 'transparent',
               transition: 'all 0.2s ease-in-out',
               '&:hover': {
@@ -415,24 +487,24 @@ const Navbar = () => {
           >
             Saved Files
           </Button>
-                  
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           {renderFullscreenToggleButton()}
           {renderThemeToggleButton()}
           {renderSoundToggleButton()}
           {renderBackendStatusButton()}
         </Box>
       </Toolbar>
-      
-      {/* Snackbar for notifications */}
-      <Snackbar 
-        open={snackbarOpen} 
-        autoHideDuration={6000} 
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
         onClose={handleSnackbarClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert 
-          onClose={handleSnackbarClose} 
-          severity={snackbarSeverity} 
+        <Alert
+          onClose={handleSnackbarClose}
+          severity={snackbarSeverity}
           sx={{ width: '100%' }}
           variant="filled"
         >

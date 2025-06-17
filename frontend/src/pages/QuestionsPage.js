@@ -35,7 +35,7 @@ import {
   IconButton,
   Tooltip,
   Slide,
-  Fade
+  useMediaQuery // Import useMediaQuery for responsive design
 } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -61,10 +61,12 @@ import {
 } from '@mui/icons-material';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable'; 
+import autoTable from 'jspdf-autotable';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
-const SIDEBAR_WIDTH = 280; // Reduced sidebar width for more minimal layout
 
+const SIDEBAR_WIDTH = 280; // Standard sidebar width
+
+// Global styles for scrollbars (unchanged, applied within specific components)
 const scrollbarStyles = (
   <GlobalStyles
     styles={{
@@ -95,21 +97,20 @@ const scrollbarStyles = (
   />
 );
 
- // Export functions
-
+// Export functions (unchanged)
 const exportToPDF = (quizData) => {
   const { score, allQuestions, selectedAnswers, percentage } = quizData;
   const doc = new jsPDF();
-  
+
   // Title
   doc.setFontSize(20);
   doc.text('Quiz Results', 20, 20);
-  
+
   // Score summary
   doc.setFontSize(14);
   doc.text(`Score: ${score} / ${allQuestions.length} (${percentage}%)`, 20, 40);
   doc.text(`Status: ${percentage >= 70 ? 'PASSED' : 'FAILED'}`, 20, 50);
-  
+
   // Prepare table data
   const tableData = allQuestions.map((q, index) => {
     const isCorrect = selectedAnswers[q.id] === q.correct_answer;
@@ -122,7 +123,7 @@ const exportToPDF = (quizData) => {
       q.page_number || 1
     ];
   });
-  
+
   // Use autoTable with the doc instance
   autoTable(doc, {
     head: [['#', 'Question', 'Your Answer', 'Correct Answer', 'Result', 'Page']],
@@ -139,11 +140,11 @@ const exportToPDF = (quizData) => {
       5: { cellWidth: 15 }
     }
   });
-  
+
   // Get the final Y position from the last table
   const finalY = doc.lastAutoTable?.finalY || 60;
   let yPosition = finalY + 20;
-  
+
   // Add explanations on new pages if needed
   allQuestions.forEach((q, index) => {
     if (q.explanation) {
@@ -151,23 +152,23 @@ const exportToPDF = (quizData) => {
         doc.addPage();
         yPosition = 20;
       }
-      
+
       doc.setFontSize(10);
       doc.text(`Q${index + 1} Explanation:`, 20, yPosition);
       yPosition += 10;
-      
+
       const splitExplanation = doc.splitTextToSize(q.explanation, 170);
       doc.text(splitExplanation, 20, yPosition);
       yPosition += splitExplanation.length * 5 + 10;
     }
   });
-  
+
   doc.save('quiz-results.pdf');
 };
 
 const exportToExcel = (quizData) => {
   const { score, allQuestions, selectedAnswers, percentage } = quizData;
-  
+
   // Summary sheet data
   const summaryData = [
     ['Quiz Results Summary'],
@@ -178,12 +179,12 @@ const exportToExcel = (quizData) => {
     ['Status', percentage >= 70 ? 'PASSED' : 'FAILED'],
     ['']
   ];
-  
+
   // Detailed results data
   const detailedData = [
     ['Question #', 'Question Text', 'Your Answer', 'Correct Answer', 'Result', 'Page Number', 'Explanation']
   ];
-  
+
   allQuestions.forEach((q, index) => {
     const isCorrect = selectedAnswers[q.id] === q.correct_answer;
     detailedData.push([
@@ -196,25 +197,25 @@ const exportToExcel = (quizData) => {
       q.explanation || ''
     ]);
   });
-  
+
   // Create workbook
   const wb = XLSX.utils.book_new();
-  
+
   // Add summary sheet
   const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
   XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
-  
+
   // Add detailed results sheet
   const detailedWs = XLSX.utils.aoa_to_sheet(detailedData);
   XLSX.utils.book_append_sheet(wb, detailedWs, 'Detailed Results');
-  
+
   // Save file
   XLSX.writeFile(wb, 'quiz-results.xlsx');
 };
 
 const exportToWord = (quizData) => {
   const { score, allQuestions, selectedAnswers, percentage } = quizData;
-  
+
   let htmlContent = `
     <html>
       <head>
@@ -234,16 +235,16 @@ const exportToWord = (quizData) => {
         <div class="header">
           <h1>Quiz Results</h1>
         </div>
-        
+
         <div class="summary">
           <h2>Summary</h2>
           <p><strong>Score:</strong> ${score} / ${allQuestions.length} (${percentage}%)</p>
           <p><strong>Status:</strong> ${percentage >= 70 ? 'PASSED' : 'FAILED'}</p>
         </div>
-        
+
         <h2>Detailed Results</h2>
   `;
-  
+
   allQuestions.forEach((q, index) => {
     const isCorrect = selectedAnswers[q.id] === q.correct_answer;
     htmlContent += `
@@ -257,12 +258,12 @@ const exportToWord = (quizData) => {
       </div>
     `;
   });
-  
+
   htmlContent += `
       </body>
     </html>
   `;
-  
+
   // Create blob and download
   const blob = new Blob([htmlContent], { type: 'application/msword' });
   const url = URL.createObjectURL(blob);
@@ -275,11 +276,13 @@ const exportToWord = (quizData) => {
   URL.revokeObjectURL(url);
 };
 
-
 const QuestionsPage = () => {
   const { sourceId } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
+  // Check if screen is small (for mobile responsiveness)
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
+
 
   const [allQuestions, setAllQuestions] = useState([]);
   const [questionsByPage, setQuestionsByPage] = useState({});
@@ -296,22 +299,22 @@ const QuestionsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [showIntro, setShowIntro] = useState(true); 
-  
+  const [showIntro, setShowIntro] = useState(true);
+
   // Add state for collapsible sidebars
-  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
-  const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
-  
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(!isSmallScreen); // Open by default on larger screens
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(!isSmallScreen); // Open by default on larger screens
+
   // Add state for question transition direction
   const [transitionDirection, setTransitionDirection] = useState('left');
   const [questionTransition, setQuestionTransition] = useState(true);
 
-  const soundRef = useRef(null); 
+  const soundRef = useRef(null);
   const retryRef = useRef(null);
-  // ⬆ Place at top level of your component (outside if-block)
   const victorySoundRef = useRef(null);
   const failureSoundRef = useRef(null);
 
+  // Effect to play victory/failure sound when quiz finishes
   useEffect(() => {
     if (quizFinished) {
       if (Math.round((score / allQuestions.length) * 100) >= 70) {
@@ -320,10 +323,9 @@ const QuestionsPage = () => {
         failureSoundRef.current?.play().catch(() => {});
       }
     }
-  }, [quizFinished]); // Runs when quizFinished becomes true
+  }, [quizFinished, score, allQuestions.length]);
 
-
-
+  // Effect to play error sound
   useEffect(() => {
     if (error && soundRef.current) {
       soundRef.current.currentTime = 0;
@@ -333,9 +335,9 @@ const QuestionsPage = () => {
         }
       });
     }
-  }, [error]); // ✅ triggers when error appears
+  }, [error]);
 
-
+  // Functions to play sounds
   const playClickSound = () => {
     if (soundRef.current) {
       soundRef.current.currentTime = 0; // Reset in case it's already playing
@@ -354,7 +356,6 @@ const QuestionsPage = () => {
     }
   };
 
-
   const handleDismissIntro = () => {
     setShowIntro(false);
   };
@@ -368,6 +369,7 @@ const QuestionsPage = () => {
     setRightSidebarOpen(!rightSidebarOpen);
   };
 
+  // Effect to fetch and group questions
   useEffect(() => {
     const fetchAndGroupQuestions = async () => {
       setIsLoading(true);
@@ -382,21 +384,21 @@ const QuestionsPage = () => {
             if (pageA !== pageB) return pageA - pageB;
             return a.id - b.id; // You can also use `a.index` or `a.question_number` if available
           });
-  
+
           setAllQuestions(sortedQuestions);
-  
+
           const grouped = sortedQuestions.reduce((acc, q) => {
             const pageNum = q.page_number || 1;
             if (!acc[pageNum]) acc[pageNum] = [];
             acc[pageNum].push(q);
             return acc;
           }, {});
-  
+
           setQuestionsByPage(grouped);
-  
+
           const pagesWithQuestions = Object.keys(grouped).map(Number).sort((a, b) => a - b);
           setQuizPages(pagesWithQuestions);
-  
+
           if (pagesWithQuestions.length > 0) {
             setCurrentQuizPage(pagesWithQuestions[0]);
             setCurrentQuestionIndexOnPage(0);
@@ -412,7 +414,7 @@ const QuestionsPage = () => {
       }
       setIsLoading(false);
     };
-  
+
     if (sourceId) {
       fetchAndGroupQuestions();
     } else {
@@ -421,13 +423,14 @@ const QuestionsPage = () => {
     }
   }, [sourceId]);
 
+  // Effect to scroll right sidebar to current question
   useEffect(() => {
     if (rightSidebarScrollRef.current) {
       rightSidebarScrollRef.current.scrollTop = rightSidebarScrollPosition;
     }
   }, [currentQuestionIndexOnPage, rightSidebarScrollPosition]);
 
-  // Add this useEffect to track scroll changes
+  // Effect to track scroll changes in right sidebar
   useEffect(() => {
     const scrollElement = rightSidebarScrollRef.current;
     if (!scrollElement) return;
@@ -439,11 +442,11 @@ const QuestionsPage = () => {
     scrollElement.addEventListener('scroll', handleScroll);
     return () => scrollElement.removeEventListener('scroll', handleScroll);
   }, []);
-  
+
 
   const currentQuizPageQuestions = questionsByPage[currentQuizPage] || [];
   const currentQuestion = currentQuizPageQuestions[currentQuestionIndexOnPage];
-  
+
 
   const handleAnswerChange = (questionId, selectedOptionKey) => {
     setSelectedAnswers({
@@ -460,36 +463,28 @@ const QuestionsPage = () => {
         currentScore++;
       }
     });
-    
+
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     setScore(currentScore);
 
     setQuizFinished(true);
     setIsSubmitting(false);
   };
 
-  const playRetrySound = () => {
-    if (retryRef.current) {
-      retryRef.current.currentTime = 0;
-      retryRef.current.play().catch((e) => {
-        console.warn("Retry sound play failed:", e);
-      });
-    }
-  };
 
   const handleRetryQuiz = () => {
     setSelectedAnswers({});
     setScore(0);
     setQuizFinished(false);
-    playretrySound();
+    playretrySound(); // Play retry sound
     if (quizPages.length > 0) {
       setCurrentQuizPage(quizPages[0]);
       setCurrentQuestionIndexOnPage(0);
     }
-    playretrySound();
   };
 
+  // Warm up audio for better playback experience
   useEffect(() => {
     const warmUpAudio = () => {
       if (soundRef.current) {
@@ -501,22 +496,23 @@ const QuestionsPage = () => {
         });
       }
     };
-  
+
     // Warm up audio after user clicks anywhere
     const clickHandler = () => {
       warmUpAudio();
       window.removeEventListener('click', clickHandler);
     };
-  
+
     window.addEventListener('click', clickHandler);
-  
+
     return () => {
       window.removeEventListener('click', clickHandler);
     };
   }, []);
-  
+
 
   // Keyboard navigation
+  // eslint-disable-next-line
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (quizFinished || isLoading || isSubmitting) return; // Disable keyboard navigation if quiz is finished or loading
@@ -572,13 +568,14 @@ const QuestionsPage = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
+    // eslint-disable-next-line
   }, [currentQuizPage, currentQuestionIndexOnPage, allQuestions, selectedAnswers, quizFinished, isLoading, isSubmitting, currentQuestion, handleAnswerChange]);
 
   // Modified navigation handlers to set transition direction
   const handleNextQuestion = () => {
     setTransitionDirection('left');
     setQuestionTransition(false);
-    
+
     // Small delay to allow exit animation
     setTimeout(() => {
       const questionsOnCurrentPage = questionsByPage[currentQuizPage] || [];
@@ -595,7 +592,7 @@ const QuestionsPage = () => {
   const handlePreviousQuestion = () => {
     setTransitionDirection('right');
     setQuestionTransition(false);
-    
+
     // Small delay to allow exit animation
     setTimeout(() => {
       if (currentQuestionIndexOnPage > 0) {
@@ -639,8 +636,8 @@ const QuestionsPage = () => {
 
   const getQuestionStatus = (question) => {
     if (selectedAnswers[question.id]) {
-      return quizFinished ? 
-        (selectedAnswers[question.id] === question.correct_answer ? 'correct' : 'incorrect') 
+      return quizFinished ?
+        (selectedAnswers[question.id] === question.correct_answer ? 'correct' : 'incorrect')
         : 'answered';
     }
     return 'unanswered';
@@ -661,10 +658,11 @@ const QuestionsPage = () => {
   };
 
   // Left Sidebar - Navigation with collapsible functionality
-  const LeftSidebar = () => (
+  const LeftSidebar = ({ isSmallScreen }) => (
     <Drawer
-      variant="persistent"
+      variant={isSmallScreen ? "temporary" : "persistent"} // Temporary for small screens, persistent for large
       open={leftSidebarOpen}
+      onClose={isSmallScreen ? toggleLeftSidebar : undefined} // Close on click outside for temporary drawer
       sx={{
         width: leftSidebarOpen ? SIDEBAR_WIDTH : 0,
         flexShrink: 0,
@@ -677,43 +675,19 @@ const QuestionsPage = () => {
           boxSizing: 'border-box',
           backgroundColor: theme.palette.background.paper,
           borderRight: `1px solid ${theme.palette.divider}`,
-          top: '80px',
-          height: 'calc(100vh - 80px)',
+          top: isSmallScreen ? '0px' : '80px', // Full height on small screens
+          height: isSmallScreen ? '100vh' : 'calc(100vh - 80px)', // Full height on small screens
           transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
           }),
           overflowX: 'hidden',
+          // Adjust position for mobile, slide in from left
+          left: isSmallScreen && !leftSidebarOpen ? `-${SIDEBAR_WIDTH}px` : '0px',
         },
       }}
     >
-      <GlobalStyles
-        styles={{
-          '*::-webkit-scrollbar': {
-            width: '8px',
-            height: '8px',
-          },
-          '*::-webkit-scrollbar-track': {
-            background: '#363636',
-            borderRadius: '4px',
-          },
-          '*::-webkit-scrollbar-thumb': {
-            background: '#FF6B35',
-            borderRadius: '4px',
-          },
-          '*::-webkit-scrollbar-thumb:hover': {
-            background: '#E64A19',
-          },
-          '*::-webkit-scrollbar-corner': {
-            background: 'transparent',
-          },
-          // For Firefox
-          '*': {
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#FF6B35 #363636',
-          },
-        }}
-      />
+      {scrollbarStyles}
       <Box sx={{ p: 3, overflowY: 'auto', height: '100%' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="subtitle2" sx={{ color: theme.palette.text.secondary }}>
@@ -721,11 +695,11 @@ const QuestionsPage = () => {
           </Typography>
           <Tooltip title="Collapse Sidebar">
             <IconButton onClick={() => {playClickSound();toggleLeftSidebar();}} size="small">
-              <ChevronLeftIcon />
+              {isSmallScreen ? <MenuIcon /> : <ChevronLeftIcon />} {/* Different icon for mobile */}
             </IconButton>
           </Tooltip>
         </Box>
-        
+
         <List sx={{ p: 0 }}>
           {quizPages.map((pageNum) => (
             <PageListItem
@@ -736,11 +710,13 @@ const QuestionsPage = () => {
               currentQuizPage={currentQuizPage}
               handlePageChange={handlePageChange}
               theme={theme}
+              isSmallScreen={isSmallScreen} // Pass down prop
             />
-          ))}        </List>
+          ))}
+        </List>
 
         <Divider sx={{ my: 3 }} />
-        
+
         <Box sx={{ textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             Progress
@@ -757,7 +733,7 @@ const QuestionsPage = () => {
 
 
         <Divider sx={{ my: 2 }} />
-        
+
         <Stack spacing={1}>
           <Button
             variant="contained"
@@ -782,18 +758,19 @@ const QuestionsPage = () => {
   );
 
   // Left sidebar toggle button
-  const LeftSidebarToggle = () => {
-    if (leftSidebarOpen) return null; // Hide toggle when sidebar is open
-  
+  const LeftSidebarToggle = ({ isSmallScreen }) => {
+    if (leftSidebarOpen && !isSmallScreen) return null; // Hide toggle when sidebar is open on large screens
+    if (leftSidebarOpen && isSmallScreen) return null; // Hide toggle when sidebar is open on small screens
+
     return (
       <Box
         sx={{
           position: 'fixed',
-          left: 0,
-          top: '16.5%',
-          transform: 'translateY(-50%)',
+          left: isSmallScreen ? '0px' : 0, // Adjust position for mobile
+          top: isSmallScreen ? '100px' : '16.5%', // Adjust position for mobile
+          transform: isSmallScreen ? 'none' : 'translateY(-50%)',
           zIndex: 1200,
-          transition: theme.transitions.create(['left'], {
+          transition: theme.transitions.create(['left', 'top'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
           }),
@@ -805,25 +782,24 @@ const QuestionsPage = () => {
             sx={{
               backgroundColor: theme.palette.background.paper,
               border: `1px solid ${theme.palette.divider}`,
-              borderRadius: '0 4px 4px 0',
+              borderRadius: isSmallScreen ? '4px' : '0 4px 4px 0', // Rounded on all sides for mobile
               '&:hover': {
                 backgroundColor: theme.palette.action.hover,
               },
             }}
           >
-            <ChevronRightIcon />
+            <MenuIcon /> {/* Always show menu icon for mobile toggle */}
           </IconButton>
         </Tooltip>
       </Box>
     );
   };
-  
 
-  const PageListItem = ({ pageNum, questionsByPage, selectedAnswers, currentQuizPage, handlePageChange, theme }) => {
+  const PageListItem = ({ pageNum, questionsByPage, selectedAnswers, currentQuizPage, handlePageChange, theme, isSmallScreen }) => {
     const pageQuestions = questionsByPage[pageNum] || [];
     const answeredCount = pageQuestions.filter(q => selectedAnswers[q.id]).length;
     const pageRef = useRef(null);
-  
+
     useEffect(() => {
       if (currentQuizPage === pageNum && pageRef.current) {
         pageRef.current.scrollIntoView({
@@ -832,13 +808,18 @@ const QuestionsPage = () => {
         });
       }
     }, [currentQuizPage, pageNum]);
-  
+
     return (
       <ListItem key={pageNum} disablePadding sx={{ mb: 1 }}>
         <ListItemButton
           ref={pageRef}
           selected={currentQuizPage === pageNum}
-          onClick={() => handlePageChange(pageNum)}
+          onClick={() => {
+            handlePageChange(pageNum);
+            if (isSmallScreen) { // Close sidebar on mobile after selection
+              toggleLeftSidebar();
+            }
+          }}
           sx={{
             borderRadius: 2,
             '&.Mui-selected': {
@@ -864,11 +845,12 @@ const QuestionsPage = () => {
   };
 
   // Right Sidebar - Questions List with collapsible functionality
-  const RightSidebar = () => (
+  const RightSidebar = ({ isSmallScreen }) => (
     <Drawer
-      variant="persistent"
+      variant={isSmallScreen ? "temporary" : "persistent"} // Temporary for small screens, persistent for large
       anchor="right"
       open={rightSidebarOpen}
+      onClose={isSmallScreen ? toggleRightSidebar : undefined} // Close on click outside for temporary drawer
       sx={{
         width: rightSidebarOpen ? SIDEBAR_WIDTH : 0,
         flexShrink: 0,
@@ -881,43 +863,19 @@ const QuestionsPage = () => {
           boxSizing: 'border-box',
           backgroundColor: theme.palette.background.paper,
           borderLeft: `1px solid ${theme.palette.divider}`,
-          top: '80px',
-          height: 'calc(100vh - 70px)',
+          top: isSmallScreen ? '0px' : '80px', // Full height on small screens
+          height: isSmallScreen ? '100vh' : 'calc(100vh - 70px)', // Full height on small screens
           transition: theme.transitions.create(['width'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
           }),
           overflowX: 'hidden',
+          // Adjust position for mobile, slide in from right
+          right: isSmallScreen && !rightSidebarOpen ? `-${SIDEBAR_WIDTH}px` : '0px',
         },
       }}
     >
-      <GlobalStyles
-        styles={{
-          '*::-webkit-scrollbar': {
-            width: '8px',
-            height: '8px',
-          },
-          '*::-webkit-scrollbar-track': {
-            background: '#363636',
-            borderRadius: '4px',
-          },
-          '*::-webkit-scrollbar-thumb': {
-            background: '#FF6B35',
-            borderRadius: '4px',
-          },
-          '*::-webkit-scrollbar-thumb:hover': {
-            background: '#E64A19',
-          },
-          '*::-webkit-scrollbar-corner': {
-            background: 'transparent',
-          },
-          // For Firefox
-          '*': {
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#FF6B35 #363636',
-          },
-        }}
-      />
+      {scrollbarStyles}
       <Box sx={{ p: 2, overflowY: 'auto', height: '100%' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6" sx={{ color: theme.palette.primary.main, fontWeight: 600 }}>
@@ -925,12 +883,12 @@ const QuestionsPage = () => {
           </Typography>
           <Tooltip title="Collapse Sidebar">
             <IconButton onClick={() => {playClickSound();toggleRightSidebar();}} size="small">
-              <ChevronRightIcon />
+              {isSmallScreen ? <MenuIcon /> : <ChevronRightIcon />} {/* Different icon for mobile */}
             </IconButton>
           </Tooltip>
         </Box>
-        
-        <List sx={{ p: 0, maxHeight: 'calc(100vh - 300px)', overflow: 'hidden auto' }} ref={rightSidebarScrollRef}>
+
+        <List sx={{ p: 0, maxHeight: 'calc(100vh - 180px)', overflow: 'hidden auto' }} ref={rightSidebarScrollRef}>
           {currentQuizPageQuestions.map((question, index) => (
             <QuestionListItem
               key={question.id}
@@ -940,28 +898,28 @@ const QuestionsPage = () => {
               handleQuestionSelect={handleQuestionSelect}
               getQuestionIcon={getQuestionIcon}
               theme={theme}
+              isSmallScreen={isSmallScreen} // Pass down prop
             />
           ))}
         </List>
-
-        
       </Box>
     </Drawer>
   );
 
   // Right sidebar toggle button
-  const RightSidebarToggle = () => {
-    if (rightSidebarOpen) return null; // Do not render toggle if sidebar is open
-  
+  const RightSidebarToggle = ({ isSmallScreen }) => {
+    if (rightSidebarOpen && !isSmallScreen) return null; // Do not render toggle if sidebar is open on large screens
+    if (rightSidebarOpen && isSmallScreen) return null; // Do not render toggle if sidebar is open on small screens
+
     return (
       <Box
         sx={{
           position: 'fixed',
-          right: 0,
-          top: '16.5%',
-          transform: 'translateY(-50%)',
+          right: isSmallScreen ? '0px' : 0, // Adjust position for mobile
+          top: isSmallScreen ? '100px' : '16.5%', // Adjust position for mobile
+          transform: isSmallScreen ? 'none' : 'translateY(-50%)',
           zIndex: 1200,
-          transition: theme.transitions.create(['right'], {
+          transition: theme.transitions.create(['right', 'top'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
           }),
@@ -976,23 +934,23 @@ const QuestionsPage = () => {
             sx={{
               backgroundColor: theme.palette.background.paper,
               border: `1px solid ${theme.palette.divider}`,
-              borderRadius: '4px 0 0 4px',
+              borderRadius: isSmallScreen ? '4px' : '4px 0 0 4px', // Rounded on all sides for mobile
               '&:hover': {
                 backgroundColor: theme.palette.action.hover,
               },
             }}
           >
-            <ChevronLeftIcon />
+            <MenuIcon /> {/* Always show menu icon for mobile toggle */}
           </IconButton>
         </Tooltip>
       </Box>
     );
   };
-  
 
-  const QuestionListItem = ({ question, index, currentQuestionIndexOnPage, handleQuestionSelect, getQuestionIcon, theme }) => {
+
+  const QuestionListItem = ({ question, index, currentQuestionIndexOnPage, handleQuestionSelect, getQuestionIcon, theme, isSmallScreen }) => {
     const questionRef = useRef(null);
-  
+
     useEffect(() => {
       if (currentQuestionIndexOnPage === index && questionRef.current) {
         const el = questionRef.current;
@@ -1000,7 +958,7 @@ const QuestionsPage = () => {
         const isInView =
           rect.top >= 0 &&
           rect.bottom <= (window.innerHeight || document.documentElement.clientHeight);
-    
+
         if (!isInView) {
           el.scrollIntoView({
             behavior: 'smooth',
@@ -1009,14 +967,19 @@ const QuestionsPage = () => {
         }
       }
     }, [currentQuestionIndexOnPage, index]);
-    
-  
+
+
     return (
       <ListItem key={question.id} disablePadding sx={{ mb: 1, p:0 }}>
         <ListItemButton
           ref={questionRef}
           selected={currentQuestionIndexOnPage === index}
-          onClick={() => handleQuestionSelect(index)}
+          onClick={() => {
+            handleQuestionSelect(index);
+            if (isSmallScreen) { // Close sidebar on mobile after selection
+              toggleRightSidebar();
+            }
+          }}
           sx={{
             borderRadius: 2,
             '&.Mui-selected': {
@@ -1031,7 +994,7 @@ const QuestionsPage = () => {
             primary={`Question ${index + 1}`}
             secondary={
               <Typography variant="caption" noWrap>
-                {question.question_text.length > 30 
+                {question.question_text.length > 30
                   ? question.question_text.substring(0, 30) + '...'
                   : question.question_text
                 }
@@ -1047,10 +1010,10 @@ const QuestionsPage = () => {
 
   if (isLoading) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         height: '100vh',
         flexDirection: 'column'
       }}>
@@ -1077,26 +1040,26 @@ const QuestionsPage = () => {
       </>
     );
   }
-  
+
   if (quizFinished) {
     const percentage = Math.round((score / allQuestions.length) * 100);
 
-    
+
     // Export menu state
-    
+
     const open = Boolean(anchorEl);
-    
+
     const handleExportClick = (event) => {
       setAnchorEl(event.currentTarget);
     };
-    
+
     const handleExportClose = () => {
       setAnchorEl(null);
     };
-    
+
     const handleExport = (format) => {
       const quizData = { score, allQuestions, selectedAnswers, percentage };
-      
+
       switch (format) {
         case 'pdf':
           exportToPDF(quizData);
@@ -1109,50 +1072,50 @@ const QuestionsPage = () => {
           break;
         default:
           console.error('Unknown export format:', format);
-          break;  
+          break;
       }
-      
+
       handleExportClose();
     };
-    
+
     return (
       <>
       <audio ref={victorySoundRef} src={`${process.env.PUBLIC_URL}/sounds/victory.mp3`} preload="auto" />
       <audio ref={failureSoundRef} src={`${process.env.PUBLIC_URL}/sounds/failure.mp3`} preload="auto" />
         <Box
           sx={{
-            p: 4,
+            p: 0.1,
             minHeight: '100vh',
           }}
         >
           <Container maxWidth="lg">
-            <Paper elevation={6} sx={{ p: 6, textAlign: 'center', mb: 4 }}>
+            <Paper elevation={6} sx={{ p: { xs: 3, md: 6 }, textAlign: 'center', mb: 4 }}> {/* Responsive padding */}
               <Avatar
                 sx={{
-                  width: 80,
-                  height: 80,
+                  width: { xs: 60, md: 80 }, // Smaller avatar on small screens
+                  height: { xs: 60, md: 80 },
                   margin: '0 auto 2rem',
                   backgroundColor: percentage >= 70 ? theme.palette.success.main : theme.palette.error.main,
-                  fontSize: '2rem'
+                  fontSize: { xs: '1.5rem', md: '2rem' } // Smaller font size
                 }}
               >
                 {percentage >= 70 ? '🎉' : '😅'}
               </Avatar>
-              
-              <Typography variant="h3" gutterBottom sx={{ fontWeight: 600 }}>
+
+              <Typography variant={isSmallScreen ? "h4" : "h3"} gutterBottom sx={{ fontWeight: 600 }}> {/* Responsive typography */}
                 Quiz Complete!
               </Typography>
-              
-              <Typography variant="h4" sx={{ color: theme.palette.primary.main, mb: 3 }}>
+
+              <Typography variant={isSmallScreen ? "h5" : "h4"} sx={{ color: theme.palette.primary.main, mb: 3 }}> {/* Responsive typography */}
                 Score: {score} / {allQuestions.length} ({percentage}%)
               </Typography>
-  
+
               <LinearProgress
                 variant="determinate"
                 value={percentage}
-                sx={{ 
-                  height: 12, 
-                  borderRadius: 6, 
+                sx={{
+                  height: 12,
+                  borderRadius: 6,
                   mb: 4,
                   backgroundColor: theme.palette.background.default,
                   '& .MuiLinearProgress-bar': {
@@ -1160,26 +1123,26 @@ const QuestionsPage = () => {
                   }
                 }}
               />
-  
-              <Stack direction="row" spacing={2} justifyContent="center" flexWrap="wrap">
-                <Button 
-                  variant="contained" 
+
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="center" flexWrap="wrap"> {/* Stack buttons vertically on mobile */}
+                <Button
+                  variant="contained"
                   size="large"
                   startIcon={<RefreshIcon />}
                   onClick={() => {playretrySound();handleRetryQuiz();}}
                 >
                   Retry Quiz
                 </Button>
-                <Button 
-                  variant="outlined" 
+                <Button
+                  variant="outlined"
                   size="large"
                   startIcon={<HomeIcon />}
                   onClick={() => navigate('/saved-files')}
                 >
                   Back to Files
                 </Button>
-                <Button 
-                  variant="outlined" 
+                <Button
+                  variant="outlined"
                   size="large"
                   startIcon={<DownloadIcon />}
                   onClick={handleExportClick}
@@ -1188,7 +1151,7 @@ const QuestionsPage = () => {
                   Export Results
                 </Button>
               </Stack>
-              
+
               <Menu
                 anchorEl={anchorEl}
                 open={open}
@@ -1217,67 +1180,67 @@ const QuestionsPage = () => {
                 </MenuItem>
               </Menu>
             </Paper>
-  
-            <Typography variant="h5" sx={{ mb: 3, fontWeight: 600 }}>
+
+            <Typography variant={isSmallScreen ? "h6" : "h5"} sx={{ mb: 3, fontWeight: 600 }}> {/* Responsive typography */}
               Detailed Results
             </Typography>
-            
+
             <Grid container spacing={3}>
               {allQuestions.map((q, index) => {
                 const isCorrect = selectedAnswers[q.id] === q.correct_answer;
                 return (
                   <Grid item xs={12} key={q.id}>
-                    <Card 
+                    <Card
                       elevation={3}
-                      sx={{ 
-                        backgroundColor: isCorrect 
+                      sx={{
+                        backgroundColor: isCorrect
                           ? theme.palette.success.main + '10'
                           : theme.palette.error.main + '10',
                         border: `2px solid ${isCorrect ? theme.palette.success.main : theme.palette.error.main}20`
                       }}
                     >
-                      <CardContent sx={{ p: 4 }}>
+                      <CardContent sx={{ p: { xs: 2, md: 4 } }}> {/* Responsive padding */}
                         <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
                           <Avatar
                             sx={{
                               bgcolor: isCorrect ? theme.palette.success.main : theme.palette.error.main,
                               mr: 2,
-                              width: 32,
-                              height: 32,
-                              fontSize: '0.9rem'
+                              width: { xs: 28, md: 32 }, // Smaller avatar on mobile
+                              height: { xs: 28, md: 32 },
+                              fontSize: { xs: '0.8rem', md: '0.9rem' }
                             }}
                           >
                             {index + 1}
                           </Avatar>
                           <Box sx={{ flex: 1 }}>
-                            <Typography variant="h6" sx={{ mb: 2, fontWeight: 500 }}>
+                            <Typography variant={isSmallScreen ? "body1" : "h6"} sx={{ mb: 2, fontWeight: 500 }}> {/* Responsive typography */}
                               {q.question_text}
                             </Typography>
-                            
-                            <Chip 
-                              label={`Page ${q.page_number || 1}`} 
-                              size="small" 
+
+                            <Chip
+                              label={`Page ${q.page_number || 1}`}
+                              size="small"
                               sx={{ mb: 2 }}
                             />
-                            
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                              <Typography variant="body1" sx={{ mr: 2 }}>
+
+                            <Box sx={{ display: 'flex', mb: 2, flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'flex-start', md: 'center' } }}> {/* Stack on mobile */}
+                              <Typography variant="body1" sx={{ mr: { xs: 0, md: 2 }, mb: { xs: 1, md: 0 } }}>
                                 <strong>Your answer:</strong> {q.options[selectedAnswers[q.id]] || 'Not answered'}
                               </Typography>
-                              {isCorrect ? 
-                                <CheckCircleOutlineIcon color="success" /> : 
+                              {isCorrect ?
+                                <CheckCircleOutlineIcon color="success" /> :
                                 <HighlightOffIcon color="error" />
                               }
                             </Box>
-                            
+
                             {!isCorrect && (
                               <Typography variant="body1" sx={{ color: theme.palette.success.main, mb: 2 }}>
                                 <strong>Correct answer:</strong> {q.options[q.correct_answer]}
                               </Typography>
                             )}
-                            
+
                             {q.explanation && (
-                              <Paper sx={{ p: 2, backgroundColor: theme.palette.background.default }}>
+                              <Paper sx={{ p: { xs: 1.5, md: 2 }, backgroundColor: theme.palette.background.default }}> {/* Responsive padding */}
                                 <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
                                   <strong>Explanation:</strong> {q.explanation}
                                 </Typography>
@@ -1296,7 +1259,7 @@ const QuestionsPage = () => {
       </>
     );
   }
-  
+
 
   if (isSubmitting) {
     return (
@@ -1316,7 +1279,7 @@ const QuestionsPage = () => {
             justifyContent: 'center'
           }}
         />
-        
+
         {/* Loading animation container */}
         <Box
           sx={{
@@ -1325,7 +1288,7 @@ const QuestionsPage = () => {
             left: '50%',
             transform: 'translate(-50%, -50%)',
             zIndex: 9999,
-            width: '300px',
+            width: { xs: '90%', sm: '300px' }, // Responsive width
             height: '300px',
             display: 'flex',
             flexDirection: 'column',
@@ -1348,9 +1311,9 @@ const QuestionsPage = () => {
               height: '200px'
             }}
           />
-          <Typography 
-            variant="h6" 
-            sx={{ 
+          <Typography
+            variant="h6"
+            sx={{
               textAlign: 'center',
               color: '#FF6B35', // Primary carrot color from your theme
               fontWeight: 600
@@ -1358,9 +1321,9 @@ const QuestionsPage = () => {
           >
             Submitting Quiz...
           </Typography>
-          <Typography 
-            variant="body2" 
-            sx={{ 
+          <Typography
+            variant="body2"
+            sx={{
               textAlign: 'center',
               color: '#B0B0B0' // Secondary text color from your theme
             }}
@@ -1376,16 +1339,18 @@ const QuestionsPage = () => {
   if (showIntro && !isLoading && !error && !quizFinished && !isSubmitting) {
     return (
       <>
-        <LeftSidebar />
-        <LeftSidebarToggle />
-        <RightSidebar />
-        <RightSidebarToggle />
+        {/* Pass isSmallScreen to sidebars and toggles */}
+        <LeftSidebar isSmallScreen={isSmallScreen} />
+        <LeftSidebarToggle isSmallScreen={isSmallScreen} />
+        <RightSidebar isSmallScreen={isSmallScreen} />
+        <RightSidebarToggle isSmallScreen={isSmallScreen} />
         <Box
           sx={{
-            marginLeft: leftSidebarOpen ? `${SIDEBAR_WIDTH}px` : '0',
-            marginRight: rightSidebarOpen ? `${SIDEBAR_WIDTH}px` : '0',
+            // Adjust margins based on sidebar open state and screen size
+            marginLeft: leftSidebarOpen && !isSmallScreen ? `${SIDEBAR_WIDTH}px` : '0',
+            marginRight: rightSidebarOpen && !isSmallScreen ? `${SIDEBAR_WIDTH}px` : '0',
             minHeight: '80vh',
-            mt: 2,
+            mt: 20,
             transition: theme.transitions.create(['margin'], {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.enteringScreen,
@@ -1416,7 +1381,7 @@ const QuestionsPage = () => {
             justifyContent: 'center'
           }}
         />
-        
+
         {/* Intro guide container */}
         <Box
           sx={{
@@ -1425,12 +1390,11 @@ const QuestionsPage = () => {
             left: '50%',
             transform: 'translate(-50%, -50%)',
             zIndex: 9999,
-            width: '90vw',
-            maxWidth: '1200px',
-            height: '80vh',
-            maxHeight: '600px',
+            width: { xs: '95vw', sm: '90vw', md: '1200px' }, // Responsive width
+            height: { xs: '98vh', sm: '85vh', md: '600px' }, // Increased height for smaller screens
+            maxHeight: 'auto',
             display: 'flex',
-            flexDirection: 'column',
+            flexDirection: { xs: 'column', md: 'column' }, // Stack vertically on small screens
             backgroundColor: '#2D2D2D',
             borderRadius: 4,
             boxShadow: '0 8px 40px rgba(0, 0, 0, 0.4)',
@@ -1442,25 +1406,27 @@ const QuestionsPage = () => {
           <Box
             sx={{
               background: 'linear-gradient(135deg, #FF6B35 0%, #FF8A50 100%)',
-              p: 3,
+              p: { xs: 2, md: 1.5 }, // Reduced padding on PC
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between'
+              justifyContent: 'space-between',
+              flexDirection: { xs: 'column', sm: 'row' },
+              textAlign: { xs: 'center', sm: 'left' }
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: { xs: 1, sm: 0 } }}>
               <DotLottieReact
                 src="https://lottie.host/3b3d5d9a-24cf-425e-8888-3004251a2aa0/hNj5nx9Y6g.lottie"
                 loop
                 autoplay
                 style={{
-                  width: '70px',
-                  height: '70px'
+                  width: isSmallScreen ? '50px' : '60px', // slightly reduced on desktop
+                  height: isSmallScreen ? '50px' : '60px',
                 }}
               />
-              <Typography 
-                variant="h4" 
-                sx={{ 
+              <Typography
+                variant={isSmallScreen ? "h5" : "h6"} // smaller heading on PC
+                sx={{
                   color: '#FFFFFF',
                   fontWeight: 700,
                   textShadow: '0 2px 4px rgba(0,0,0,0.3)'
@@ -1469,24 +1435,25 @@ const QuestionsPage = () => {
                 Welcome to QuickyQuizy!
               </Typography>
             </Box>
-            <Chip 
-              label="Quick Guide" 
-              sx={{ 
-                backgroundColor: 'rgba(255,255,255,0.2)', 
+            <Chip
+              label="Quick Guide"
+              sx={{
+                backgroundColor: 'rgba(255,255,255,0.2)',
                 color: 'white',
                 fontWeight: 600
-              }} 
+              }}
             />
           </Box>
 
+
           {/* Main Content Area */}
-          <Box sx={{ flex: 1, display: 'flex', p: 4, gap: 4 }}>
-            
+          <Box sx={{ flex: 1, display: 'flex', p: { xs: 2, md: 4 }, gap: { xs: 2, md: 4 }, flexDirection: { xs: 'column', md: 'row' }, overflowY: 'auto' }}> {/* Stack on mobile, add scroll */}
+
             {/* Left Panel - Quiz Info */}
             <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <Typography 
-                variant="h5" 
-                sx={{ 
+              <Typography
+                variant={isSmallScreen ? "h6" : "h5"} // Responsive typography
+                sx={{
                   color: '#FF6B35',
                   fontWeight: 600,
                   mb: 2,
@@ -1498,13 +1465,13 @@ const QuestionsPage = () => {
                 <QuizIcon />
                 Quiz Information
               </Typography>
-              
-              <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-                <Paper 
-                  sx={{ 
+
+              <Box sx={{ display: 'flex', gap: { xs: 1, md: 2 }, flexDirection: { xs: 'column', sm: 'row' }, mb: 3 }}> {/* Stack on extra small screens */}
+                <Paper
+                  sx={{
                     flex: 1,
-                    p: 3, 
-                    backgroundColor: 'rgba(255, 107, 53, 0.1)', 
+                    p: { xs: 2, md: 3 }, // Responsive padding
+                    backgroundColor: 'rgba(255, 107, 53, 0.1)',
                     border: '1px solid rgba(255, 107, 53, 0.3)',
                     borderRadius: 3,
                     transition: 'all 0.3s ease',
@@ -1517,8 +1484,8 @@ const QuestionsPage = () => {
                   <Stack spacing={2} alignItems="center" textAlign="center">
                     <Box
                       sx={{
-                        width: 60,
-                        height: 60,
+                        width: { xs: 50, md: 60 }, // Responsive size
+                        height: { xs: 50, md: 60 },
                         borderRadius: '50%',
                         backgroundColor: 'rgba(255, 107, 53, 0.2)',
                         display: 'flex',
@@ -1526,11 +1493,11 @@ const QuestionsPage = () => {
                         justifyContent: 'center'
                       }}
                     >
-                      <Typography variant="h4" sx={{ color: '#FF6B35', fontWeight: 700 }}>
+                      <Typography variant={isSmallScreen ? "h5" : "h4"} sx={{ color: '#FF6B35', fontWeight: 700 }}> {/* Responsive typography */}
                         {quizPages.length}
                       </Typography>
                     </Box>
-                    <Typography variant="h6" color="primary.main" fontWeight={600}>
+                    <Typography variant={isSmallScreen ? "subtitle1" : "h6"} color="primary.main" fontWeight={600}> {/* Responsive typography */}
                       Quiz Pages
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -1538,12 +1505,12 @@ const QuestionsPage = () => {
                     </Typography>
                   </Stack>
                 </Paper>
-                
-                <Paper 
-                  sx={{ 
+
+                <Paper
+                  sx={{
                     flex: 1,
-                    p: 3, 
-                    backgroundColor: 'rgba(255, 107, 53, 0.1)', 
+                    p: { xs: 2, md: 3 }, // Responsive padding
+                    backgroundColor: 'rgba(255, 107, 53, 0.1)',
                     border: '1px solid rgba(255, 107, 53, 0.3)',
                     borderRadius: 3,
                     transition: 'all 0.3s ease',
@@ -1556,8 +1523,8 @@ const QuestionsPage = () => {
                   <Stack spacing={2} alignItems="center" textAlign="center">
                     <Box
                       sx={{
-                        width: 60,
-                        height: 60,
+                        width: { xs: 50, md: 60 }, // Responsive size
+                        height: { xs: 50, md: 60 },
                         borderRadius: '50%',
                         backgroundColor: 'rgba(255, 107, 53, 0.2)',
                         display: 'flex',
@@ -1565,11 +1532,11 @@ const QuestionsPage = () => {
                         justifyContent: 'center'
                       }}
                     >
-                      <Typography variant="h4" sx={{ color: '#FF6B35', fontWeight: 700 }}>
+                      <Typography variant={isSmallScreen ? "h5" : "h4"} sx={{ color: '#FF6B35', fontWeight: 700 }}> {/* Responsive typography */}
                         {allQuestions.length}
                       </Typography>
                     </Box>
-                    <Typography variant="h6" color="primary.main" fontWeight={600}>
+                    <Typography variant={isSmallScreen ? "subtitle1" : "h6"} color="primary.main" fontWeight={600}> {/* Responsive typography */}
                       Total Questions
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -1583,17 +1550,18 @@ const QuestionsPage = () => {
             {/* Divider */}
             <Box
               sx={{
-                width: '1px',
+                width: { xs: '100%', md: '1px' }, // Full width on mobile, 1px on desktop
+                height: { xs: '1px', md: '100%' }, // 1px height on mobile, full height on desktop
                 backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                margin: '0 2px'
+                margin: { xs: '10px 0', md: '0 2px' } // Adjust margin
               }}
             />
 
             {/* Right Panel - Keyboard Shortcuts */}
             <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <Typography 
-                variant="h5" 
-                sx={{ 
+              <Typography
+                variant={isSmallScreen ? "h6" : "h5"} // Responsive typography
+                sx={{
                   color: '#FF6B35',
                   fontWeight: 600,
                   mb: 2,
@@ -1605,13 +1573,13 @@ const QuestionsPage = () => {
                 <KeyboardIcon />
                 Keyboard Shortcuts
               </Typography>
-              
-              <Box sx={{ display: 'flex', gap: 3, height: '100%' }}>
+
+              <Box sx={{ display: 'flex', gap: { xs: 2, md: 3 }, flexDirection: { xs: 'column', sm: 'row' }, height: '100%' }}> {/* Stack on extra small screens */}
                 {/* Navigation Shortcuts */}
-                <Paper 
-                  sx={{ 
+                <Paper
+                  sx={{
                     flex: 1,
-                    p: 3, 
+                    p: { xs: 2, md: 3 }, // Responsive padding
                     backgroundColor: 'rgba(255, 255, 255, 0.05)',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
                     borderRadius: 3
@@ -1628,15 +1596,15 @@ const QuestionsPage = () => {
                       { key: '↓', action: 'Next Question' }
                     ].map(({ key, action }) => (
                       <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Chip 
-                          label={key} 
-                          size="small" 
-                          sx={{ 
-                            fontWeight: 'bold', 
+                        <Chip
+                          label={key}
+                          size="small"
+                          sx={{
+                            fontWeight: 'bold',
                             minWidth: '40px',
                             backgroundColor: 'rgba(255, 107, 53, 0.2)',
                             color: '#FF6B35'
-                          }} 
+                          }}
                         />
                         <Typography variant="body2" color="text.secondary">
                           {action}
@@ -1645,12 +1613,12 @@ const QuestionsPage = () => {
                     ))}
                   </Stack>
                 </Paper>
-                
+
                 {/* Answer Selection Shortcuts */}
-                <Paper 
-                  sx={{ 
+                <Paper
+                  sx={{
                     flex: 1,
-                    p: 3, 
+                    p: { xs: 2, md: 3 }, // Responsive padding
                     backgroundColor: 'rgba(255, 255, 255, 0.05)',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
                     borderRadius: 3
@@ -1666,15 +1634,15 @@ const QuestionsPage = () => {
                       { key: 'Space', action: 'Select First Option' }
                     ].map(({ key, action }) => (
                       <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Chip 
-                          label={key} 
-                          size="small" 
-                          sx={{ 
-                            fontWeight: 'bold', 
+                        <Chip
+                          label={key}
+                          size="small"
+                          sx={{
+                            fontWeight: 'bold',
                             minWidth: '40px',
                             backgroundColor: 'rgba(255, 107, 53, 0.2)',
                             color: '#FF6B35'
-                          }} 
+                          }}
                         />
                         <Typography variant="body2" color="text.secondary">
                           {action}
@@ -1691,31 +1659,33 @@ const QuestionsPage = () => {
           <Box
             sx={{
               borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-              p: 2,
+              p: { xs: 1.5, md: 2 }, // Responsive padding
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: 'rgba(255, 255, 255, 0.02)'
+              justifyContent: { xs: 'center', sm: 'space-between' }, // Center on mobile
+              backgroundColor: 'rgba(255, 255, 255, 0.02)',
+              flexDirection: { xs: 'column', sm: 'row' }, // Stack on mobile
+              textAlign: { xs: 'center', sm: 'left' }
             }}
           >
-            <Typography 
-              variant="body2" 
-              sx={{ 
+            <Typography
+              variant="body2"
+              sx={{
                 color: '#B0B0B0',
-                ml:2.5,
-
+                ml:{ xs: 0, sm: 2.5 },
+                mb: { xs: 1, sm: 0 } // Add margin bottom on mobile
               }}
             >
               💡 <strong>Pro Tip:</strong> Use the Sidebars to jump to specific questions. Yes, your progress is automatically saved!
             </Typography>
-            
+
             <Button
               variant="contained"
               size="large"
               onClick={() => {playClickSound();handleDismissIntro();}}
-              sx={{ 
-                minWidth: '200px',
-                mr: 3,
+              sx={{
+                minWidth: { xs: '100%', sm: '200px' }, // Full width on mobile
+                mr: { xs: 0, sm: 3 },
                 background: 'linear-gradient(135deg, #FF6B35 0%, #FF8A50 100%)',
                 boxShadow: '0 4px 20px rgba(255, 107, 53, 0.3)',
                 '&:hover': {
@@ -1741,16 +1711,18 @@ const QuestionsPage = () => {
       <audio ref={victorySoundRef} src={`${process.env.PUBLIC_URL}/sounds/victory.mp3`} preload="auto" />
       <audio ref={failureSoundRef} src={`${process.env.PUBLIC_URL}/sounds/failure.mp3`} preload="auto" />
 
-      <LeftSidebar />
-      <LeftSidebarToggle />
-      <RightSidebar />
-      <RightSidebarToggle />
+      {/* Pass isSmallScreen prop to sidebars and toggles */}
+      <LeftSidebar isSmallScreen={isSmallScreen} />
+      <LeftSidebarToggle isSmallScreen={isSmallScreen} />
+      <RightSidebar isSmallScreen={isSmallScreen} />
+      <RightSidebarToggle isSmallScreen={isSmallScreen} />
       <Box
         sx={{
-          marginLeft: leftSidebarOpen ? `${SIDEBAR_WIDTH}px` : '0',
-          marginRight: rightSidebarOpen ? `${SIDEBAR_WIDTH}px` : '0',
+          // Adjust margins based on sidebar open state and screen size
+          marginLeft: leftSidebarOpen && !isSmallScreen ? `${SIDEBAR_WIDTH}px` : '0',
+          marginRight: rightSidebarOpen && !isSmallScreen ? `${SIDEBAR_WIDTH}px` : '0',
           minHeight: '80vh',
-          mt: 2,
+          mt: 0.5,
           transition: theme.transitions.create(['margin'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
@@ -1758,75 +1730,75 @@ const QuestionsPage = () => {
         }}
       >
         <Container maxWidth="lg">
-          <Paper elevation={6} sx={{ p: 2, minHeight: '70vh', overflow: 'hidden' }}>
-            <Box sx={{ mb: 4 }}>
-              <Chip 
+          <Paper elevation={6} sx={{ p: { xs: 2, md: 2 }, minHeight: '70vh', overflow: 'hidden' }}> {/* Responsive padding */}
+            <Box sx={{ mb: 4, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 1, sm: 2 } }}> {/* Stack chips on mobile */}
+              <Chip
                 label={`Source Page ${currentQuizPage}`}
                 color="primary"
-                sx={{ mr: 2 }}
+                sx={{ mr: { xs: 0, sm: 2 } }} // Adjust margin
               />
-              <Chip 
+              <Chip
                 label={`Question ${currentQuestionIndexOnPage + 1} of ${currentQuizPageQuestions.length}`}
                 variant="outlined"
               />
             </Box>
-            
+
             <Slide direction={transitionDirection} in={questionTransition} mountOnEnter unmountOnExit timeout={300}>
               <Box>
                 {currentQuestion ? (
-                  <Box sx={{ minHeight: '400px' }}>
+                  <Box sx={{ minHeight: { xs: '300px', md: '400px' } }}> {/* Responsive min-height */}
                     <FormControl component="fieldset" sx={{ width: '100%' }}>
-                      <FormLabel component="legend" sx={{ 
-                        typography: 'h5', 
+                      <FormLabel component="legend" sx={{
+                        typography: { xs: 'h6', md: 'h5' }, // Responsive typography
                         mb: 1,
                         color: theme.palette.text.primary,
                         fontWeight: 500,
                         lineHeight: 1.4
                       }}>
                         {currentQuestion.question_text}
-                          </FormLabel>
-                      
-                          <RadioGroup
-                          value={selectedAnswers[currentQuestion.id] || ''}
-                          onChange={(e) => {
-                            playClickSound(); // 🔊 Play sound on option select
-                            handleAnswerChange(currentQuestion.id, e.target.value);
-                          }}
-                          sx={{ mt: 2 }}
-                        >
-                          {Object.entries(currentQuestion.options).map(([key, value]) => (
-                            <Paper
-                              key={key}
-                              elevation={selectedAnswers[currentQuestion.id] === key ? 3 : 1}
-                              sx={{
-                                p: 2,
-                                mb: 2,
-                                border: selectedAnswers[currentQuestion.id] === key 
-                                  ? `2px solid ${theme.palette.primary.main}`
-                                  : `1px solid ${theme.palette.divider}`,
-                                backgroundColor: selectedAnswers[currentQuestion.id] === key
-                                  ? theme.palette.primary.main + '10'
-                                  : 'transparent',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                '&:hover': {
-                                  backgroundColor: theme.palette.primary.main + '05',
-                                }
-                              }}
-                            >
-                              <FormControlLabel 
-                                value={key}
-                                control={<Radio />}
-                                label={
-                                  <Typography variant="body1" sx={{ fontSize: '1.1rem', ml: 1 }}>
-                                    <strong>{key}.</strong> {value}
-                                  </Typography>
-                                }
-                                sx={{ margin: 0, width: '100%' }}
-                              />
-                            </Paper>
-                          ))}
-                        </RadioGroup>
+                      </FormLabel>
+
+                      <RadioGroup
+                        value={selectedAnswers[currentQuestion.id] || ''}
+                        onChange={(e) => {
+                          playClickSound(); // 🔊 Play sound on option select
+                          handleAnswerChange(currentQuestion.id, e.target.value);
+                        }}
+                        sx={{ mt: 2 }}
+                      >
+                        {Object.entries(currentQuestion.options).map(([key, value]) => (
+                          <Paper
+                            key={key}
+                            elevation={selectedAnswers[currentQuestion.id] === key ? 3 : 1}
+                            sx={{
+                              p: { xs: 1.5, md: 2 }, // Responsive padding
+                              mb: 2,
+                              border: selectedAnswers[currentQuestion.id] === key
+                                ? `2px solid ${theme.palette.primary.main}`
+                                : `1px solid ${theme.palette.divider}`,
+                              backgroundColor: selectedAnswers[currentQuestion.id] === key
+                                ? theme.palette.primary.main + '10'
+                                : 'transparent',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              '&:hover': {
+                                backgroundColor: theme.palette.primary.main + '05',
+                              }
+                            }}
+                          >
+                            <FormControlLabel
+                              value={key}
+                              control={<Radio />}
+                              label={
+                                <Typography variant="body1" sx={{ fontSize: { xs: '1rem', md: '1.1rem' }, ml: 1 }}> {/* Responsive font size */}
+                                  <strong>{key}.</strong> {value}
+                                </Typography>
+                              }
+                              sx={{ margin: 0, width: '100%' }}
+                            />
+                          </Paper>
+                        ))}
+                      </RadioGroup>
 
                     </FormControl>
                   </Box>
@@ -1840,10 +1812,11 @@ const QuestionsPage = () => {
               </Box>
             </Slide>
 
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1, flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 2, sm: 0 } }}> {/* Stack buttons on mobile */}
               <Button
                 variant="outlined"
                 size="large"
+                fullWidth={isSmallScreen} // Full width on small screens
                 startIcon={<ArrowBackIcon />}
                 onClick={() => {
                   playClickSound();       // Play sound
@@ -1856,15 +1829,17 @@ const QuestionsPage = () => {
               <Button
                 variant="contained"
                 size="large"
+                fullWidth={isSmallScreen} // Full width on small screens
                 endIcon={<ArrowForwardIcon />}
                 onClick={() => {
                   playClickSound();       // Play sound
                   handleNextQuestion();   // Your existing function
                 }}
                 disabled={
-                  currentQuestionIndexOnPage >= currentQuizPageQuestions.length - 1 && 
+                  currentQuestionIndexOnPage >= currentQuizPageQuestions.length - 1 &&
                   quizPages.indexOf(currentQuizPage) >= quizPages.length - 1
                 }
+                sx={{ ml: { xs: 0, sm: 2 } }} // Add left margin on larger screens
               >
                 Next
               </Button>

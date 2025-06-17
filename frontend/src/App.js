@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline, GlobalStyles } from '@mui/material';
 import Navbar from './components/Navbar';
 import UploadPage from './pages/UploadPage';
@@ -242,7 +242,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline /> {/* Normalize CSS and apply dark background */}
-      <Router basename="/Quicky">
+      <Router >
         <Navbar />
         {scrollbarStyles}
         <div style={{ 
